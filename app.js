@@ -133,7 +133,7 @@ function appendLiveRow(caseNum, posErr, oriErr, iters, converged) {
   tbody.prepend(tr);
 }
 
-$("gen-target").addEventListener("click", () => {
+function generateTarget() {
   const qTrue = K.randomQ(Math.random);
   currentTarget = K.fk(qTrue);
   currentQInit = qTrue.map((v, i) => clamp(v + deg2rad(15) * (Math.random() - 0.5), K.QMIN[i], K.QMAX[i]));
@@ -143,12 +143,10 @@ $("gen-target").addEventListener("click", () => {
   scene.setTarget(currentTarget, $("show-target").checked);
   $("solve-ik").disabled = false;
   $("ik-result").innerHTML = `<p class="small" style="margin-top:8px;">Target generated. Arm placed at a perturbed starting guess — click Solve.</p>`;
-});
+}
 
-$("show-target").addEventListener("change", () => { if (currentTarget) scene.setTarget(currentTarget, $("show-target").checked); });
-
-$("solve-ik").addEventListener("click", () => {
-  if (!currentTarget || !currentQInit) return;
+function solveIK(onDone) {
+  if (!currentTarget || !currentQInit) { if (onDone) onDone(); return; }
   $("solve-ik").disabled = true;
   const result = K.ikSolve(currentQInit, currentTarget);
   // animate through the trace
@@ -172,9 +170,47 @@ $("solve-ik").addEventListener("click", () => {
         ? `<span class="badge good">converged</span> <span class="small">${result.posErrFinal.toExponential(2)} mm, ${result.iterations} iterations</span>`
         : `<span class="badge bad">did not converge</span> <span class="small">${result.posErrFinal.toFixed(2)} mm off after ${result.iterations} iterations — this happens; see analysis below.</span>`;
       $("solve-ik").disabled = false;
+      if (onDone) onDone();
     }
   }, stepEvery);
-});
+}
+
+$("gen-target").addEventListener("click", generateTarget);
+$("show-target").addEventListener("change", () => { if (currentTarget) scene.setTarget(currentTarget, $("show-target").checked); });
+$("solve-ik").addEventListener("click", () => solveIK());
+
+// ---------------- auto-demo (plays until the visitor touches anything) ----------------
+let autoDemoActive = true;
+let autoDemoTimer = null;
+
+function stopAutoDemo() {
+  if (!autoDemoActive) return;
+  autoDemoActive = false;
+  clearTimeout(autoDemoTimer);
+  const badge = document.getElementById("auto-demo-badge");
+  if (badge) badge.classList.add("hidden");
+  // clear the demo's own runs so the visitor's own solves start from a clean slate
+  liveCurves.length = 0;
+  caseCounter = 0;
+  document.querySelector("#live-table tbody").innerHTML = "";
+  renderConvergenceChart();
+}
+
+function autoDemoLoop() {
+  if (!autoDemoActive) return;
+  setMode("ik");
+  generateTarget();
+  autoDemoTimer = setTimeout(() => {
+    if (!autoDemoActive) return;
+    solveIK(() => {
+      if (!autoDemoActive) return;
+      autoDemoTimer = setTimeout(autoDemoLoop, 3200);
+    });
+  }, 1100);
+}
+
+document.getElementById("viewer").addEventListener("pointerdown", stopAutoDemo, { once: true });
+autoDemoTimer = setTimeout(autoDemoLoop, 1400);
 
 // ---------------- workspace envelope ----------------
 const envelopePts = K.workspaceEnvelope(60);

@@ -122,8 +122,22 @@ input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; 
 .check-row input{accent-color:var(--amber);}
 
 .viewer-card{background:var(--surface); border:1px solid var(--border); border-radius:4px; overflow:hidden;}
-#canvas-host{width:100%; aspect-ratio:16/10; display:block; cursor:grab;}
+#canvas-host{width:100%; aspect-ratio:16/10; display:block; cursor:grab; position:relative;}
 #canvas-host:active{cursor:grabbing;}
+.auto-demo-badge{
+  position:absolute; top:14px; left:14px; z-index:2;
+  display:flex; align-items:center; gap:7px;
+  font-family:var(--font-mono); font-size:11px; font-weight:600; color:var(--amber);
+  background:rgba(16,16,17,0.72); backdrop-filter:blur(6px);
+  border:1px solid var(--border); border-radius:20px; padding:6px 12px;
+  transition:opacity .4s ease-out, transform .4s ease-out; pointer-events:none;
+}
+.auto-demo-badge.hidden{opacity:0; transform:translateY(-6px);}
+.auto-demo-badge .dot{
+  width:6px; height:6px; border-radius:50%; background:var(--amber);
+  animation:pulse-dot 1.4s ease-in-out infinite;
+}
+@keyframes pulse-dot{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(0.7);}}
 .viewer-footer{
   display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
   padding:12px 18px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:12px; color:var(--muted);
@@ -223,7 +237,9 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     </div>
 
     <div class="viewer-card">
-      <div id="canvas-host"></div>
+      <div id="canvas-host">
+        <div class="auto-demo-badge" id="auto-demo-badge"><span class="dot"></span>auto-demo — drag or click to take over</div>
+      </div>
       <div class="viewer-footer">
         <span class="pill" id="mode-pill">MANUAL POSE</span>
         <span class="readout">
