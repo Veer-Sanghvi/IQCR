@@ -1,4 +1,4 @@
-// IQCR dashboard — UI wiring, SVG charts, IK demo orchestration.
+// IQCR dashboard: UI wiring, SVG charts, IK demo orchestration.
 import { createRobotScene } from "./scene.js";
 
 const K = window.IQCR_KIN;
@@ -142,7 +142,7 @@ function generateTarget() {
   updateEEReadout(pos);
   scene.setTarget(currentTarget, $("show-target").checked);
   $("solve-ik").disabled = false;
-  $("ik-result").innerHTML = `<p class="small" style="margin-top:8px;">Target generated. Arm placed at a perturbed starting guess — click Solve.</p>`;
+  $("ik-result").innerHTML = `<p class="small" style="margin-top:8px;">Target generated. Arm placed at a perturbed starting guess. Click Solve.</p>`;
 }
 
 function solveIK(onDone) {
@@ -168,7 +168,7 @@ function solveIK(onDone) {
       appendLiveRow(caseCounter, result.posErrFinal, result.oriErrFinalDeg, result.iterations, result.converged);
       $("ik-result").innerHTML = result.converged
         ? `<span class="badge good">converged</span> <span class="small">${result.posErrFinal.toExponential(2)} mm, ${result.iterations} iterations</span>`
-        : `<span class="badge bad">did not converge</span> <span class="small">${result.posErrFinal.toFixed(2)} mm off after ${result.iterations} iterations — this happens; see analysis below.</span>`;
+        : `<span class="badge bad">did not converge</span> <span class="small">${result.posErrFinal.toFixed(2)} mm off after ${result.iterations} iterations. This happens; see analysis below.</span>`;
       $("solve-ik").disabled = false;
       if (onDone) onDone();
     }

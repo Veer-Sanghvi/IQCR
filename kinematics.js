@@ -1,4 +1,4 @@
-// ABB IRB120 forward/inverse kinematics — direct JS port of iqcr_kinematics.m.
+// ABB IRB120 forward/inverse kinematics: direct JS port of iqcr_kinematics.m.
 // Row-major 4x4 matrices as plain arrays: T[row][col], translation in T[i][3].
 "use strict";
 
@@ -67,7 +67,7 @@ function vsub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
 function vnorm(v) { return Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-// axis-angle (log map) orientation error, small-angle safe — mirrors the MATLAB block exactly.
+// axis-angle (log map) orientation error, small-angle safe. Mirrors the MATLAB block exactly.
 function orientationError(Ttarget, Tcur) {
   const Rt = rotOf(Ttarget), Rc = rotOf(Tcur);
   const Rerr = matMul3(Rt, transpose3(Rc));
@@ -107,7 +107,7 @@ function solve6(Ain, bin) {
   return x;
 }
 
-// Damped least-squares (Levenberg-Marquardt) numerical IK — same algorithm and
+// Damped least-squares (Levenberg-Marquardt) numerical IK, same algorithm and
 // tolerances as the paper's MATLAB script (lambda=1e-3, central-difference
 // Jacobian with h=1e-6, maxIter=200, tol=1e-9).
 function ikSolve(q0, Ttarget, { lambda = 1e-3, maxIter = 200, tol = 1e-9 } = {}) {
@@ -171,7 +171,7 @@ function mulberry32(seed) {
   };
 }
 
-// Reachable workspace envelope in the X-Z plane, base joint fixed at 0 —
+// Reachable workspace envelope in the X-Z plane, base joint fixed at 0:
 // same sweep as the paper's fig_workspace.png (60x60 grid over joints 2 & 3).
 function workspaceEnvelope(steps = 60) {
   const pts = [];
