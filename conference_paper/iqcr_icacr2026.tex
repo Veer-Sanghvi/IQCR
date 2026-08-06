@@ -1,0 +1,260 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Inspection and Quality Control Robots}
+
+\author{
+\IEEEauthorblockN{Veer Sanghvi}
+\IEEEauthorblockA{\textit{School of Engineering} \\
+\textit{Wentworth Institute of Technology}\\
+Boston, MA, USA \\
+sanghviv@wit.edu}
+\and
+\IEEEauthorblockN{Tyler Fong}
+\IEEEauthorblockA{\textit{School of Engineering} \\
+\textit{Wentworth Institute of Technology}\\
+Boston, MA, USA \\
+fongt@wit.edu}
+\and
+\IEEEauthorblockN{Syed Irtiza Ali Shah}
+\IEEEauthorblockA{\textit{School of Engineering} \\
+\textit{Wentworth Institute of Technology}\\
+Boston, MA, USA \\
+shahs10@wit.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Inspection decides how reliable a finished product actually is, and as manufacturing has scaled up, the tools for doing it have moved from handheld optical gauges to sensor-driven automated systems that can pick out a micro dent in a car body or a damaged kernel on a fast-moving grain line. Human inspectors run into a hard limit: they get tired, they miss things, and they cannot always physically reach complicated geometry, and that gap eventually shows up as field failures, recalls, and rework. Prior work chips away at pieces of this problem instead of solving the whole thing. Fixed-mount vision systems work fine on a flat, well-lit surface but break down once defects or geometry get more varied; mobile platforms cover more ground but add positional uncertainty that hurts measurement accuracy; learning-based methods adapt well but need labeled defect data that is expensive to collect for low-volume parts. This paper proposes an inspection and quality control framework that puts adaptive sensing and kinematic control on one robotic platform rather than treating detection and measurement as separate jobs, so a single six-degree-of-freedom arm can do both surface defect detection and dimensional verification across one workspace. Forward and inverse kinematics for a reference arm are verified numerically in MATLAB against the manufacturer's own rigid-body model, and the resulting sensor-placement accuracy, including a solver failure the analysis reports instead of hiding, is used to argue that this framework should generalize to any manufacturing cell where dimensional and visual inspection still run as separate stations.
+\end{abstract}
+
+\textit{Keywords—robotic inspection, quality control automation, defect detection, kinematic modeling, dimensional verification, autonomous manufacturing systems}
+
+\section{Introduction}
+Inspection and quality control keeps getting harder as products get more complicated and production cycles get shorter. Manual measurement with calipers and gauges was fine for small production runs, but it could not keep up once volumes grew. Two systems changed that in the late twentieth century: the coordinate measuring machine (CMM), which uses a probe to measure part dimensions precisely, and machine vision, which uses cameras to catch surface defects automatically. Both had a built-in weakness, though. A CMM means pulling the part off the line, and early vision systems were bolted down in one spot, so they could not adjust to a new product or a hidden surface.
+
+Robotic inspection got around that by putting sensors, vision systems, and probes on an arm that can move through the workspace instead of staying still, which is basically a mobile CMM and a mobile vision system combined. These platforms are also starting to feed data analytics pipelines, tracking defect rates and waste over time instead of just flagging one bad part at a time. This paper looks at where robotic inspection stands today, points out where vision-based and contact-based approaches each fall short, and proposes a kinematic and sensing framework meant to close that gap on one platform.
+
+\section{Literature Review}
+
+\subsection{Vision-Based Surface Defect Inspection}
+Vision-based detectors make up most of the recent inspection literature, and a lot of the accuracy gains come from adapting the network to the specific defect domain instead of reusing a general-purpose detector off the shelf. Akhyar et al.\ built the Forceful Defect Detector this way, adapting a detection backbone to the low-contrast, irregular texture of steel surface flaws; it beat general-purpose networks on precision, though the authors point out that inference speed and false positives both still matter once the detector has to run on a moving line \cite{ref1}. Zhao et al.\ took a similar approach with RDD-YOLO, building on YOLOv5 with a Res2Net backbone, a double Feature Pyramid Network, and a decoupled detection head, and it beat baseline YOLO variants on both accuracy and recall, especially on small defects (Table \ref{tab:rddyolo}) \cite{ref2}. Bagherzadeh et al.\ went a different direction and surveyed dataset labeling quality instead of model architecture, looking across public benchmarks like NEU-DET and Alibaba's Aluminum Profile Surface Detection Database, and concluded that how consistently the data is labeled matters at least as much as which architecture gets used \cite{ref3}. A 2024 systematic review in \textit{Artificial Intelligence Review} normalized train/test splits across a range of published detection architectures, covering work from 2020 to 2023, and reported a handful of things worth flagging: performance gaps between competing models shrink once the comparison conditions are standardized, supervised detection still dominates the field despite its labeling cost, inspection alone can eat up over half of total manufacturing time in some processes, and dataset imbalance between defective and non-defective samples is still the field's most persistent open problem \cite{ref4}. Chen et al.\ took a different angle from a single camera, pairing a coaxial melt-pool camera, an acoustic microphone, and a thermal camera on a robotic laser-directed energy deposition arm and syncing all three with the arm's motion in time and space, which showed that single-mode vision misses defects that only show up thermally or acoustically \cite{ref5}.
+
+\begin{table}[t]
+\caption{RDD-YOLO vs.\ baseline YOLOv5 on steel defect datasets \cite{ref2}}
+\label{tab:rddyolo}
+\centering
+\begin{tabular}{lccc}
+\hline
+Dataset & YOLOv5 mAP & RDD-YOLO mAP & Improvement \\
+\hline
+NEU-DET & 76.8\% & 81.1\% & +4.3\% \\
+GC10-DET & 69.4\% & 75.2\% & +5.8\% \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Modern Inspection and Quality Control Robotic Systems}
+Industry 4.0 has pushed artificial intelligence, cloud computing, and machine vision into inspection lines together instead of as separate tools \cite{ref7}\cite{ref8}\cite{ref10}. Six-axis industrial arms carrying cameras, laser scanners, ultrasonic sensors, and CMM probes can run a programmed inspection plan from several angles in a single cycle, and purpose-built platforms like RIPTIDE show the same idea aimed specifically at part inspection rather than general manipulation \cite{ref9}. Collaborative robots extend that same reach into shared workspaces without needing a safety cage \cite{ref13}. Autonomous mobile robots equipped with LiDAR and cameras push inspection even further, like a rail-mounted platform built for concrete quality inspection on aerial building machines \cite{ref11}, patrolling a facility for preventive maintenance and working in places too hazardous to send a person. Sensor fusion, combining cameras, LiDAR, thermal, and ultrasonic data, gives a more complete picture of a part's condition than any one sensor could on its own \cite{ref12}, and letting a robot revise its own inspection program based on what it observes is an active area of research \cite{ref14}. The obstacles that keep showing up are the sheer volume of labeled data deep learning needs and the up-front cost of a full robotic cell, both of which still price out a lot of smaller manufacturers.
+
+\subsection{Force-Controlled and Collaborative Robots for Contact-Based Inspection}
+Contact-based inspection is solving a different problem than vision: instead of imaging a surface, a probe actually has to touch it accurately, and in some cases stay in contact with it. ACES is a teleoperated, force-controlled six-degree-of-freedom arm built for inspecting the inside of pipes, and its contact sensor locates each touch point relative to the robot's base frame \cite{ref15}. The system is expensive and hard to control once the pipe geometry includes elbows or branch fittings, according to the authors, but it sets up the geometric idea this project leans on in Section \ref{sec:methodologies}: five contact points, as long as no four of them sit on the same plane, are enough to fully determine a cylinder. A 2025 study in \textit{Cyborg and Bionic Systems} built a robotic ultrasound scanner with an adjustable constant-force end effector, combining a passive spring-like mechanism with active force control to keep the probe in consistent contact with skin \cite{ref16}. A co-robotic mammography system breaks contact scanning into three phases, approach, contact, and a linear scan under proportional-integral-derivative (PID) force control, holding a target contact force while it tracks gentle changes in surface curvature \cite{ref17}. A 2024 paper on automatic contact-based 3D scanning uses an open-loop six-degree-of-freedom arm with a digitizer probe and closed-form inverse kinematics to plan straight-line paths point to point, and it was validated against ASME B89.4.22 with sub-millimeter repeatability \cite{ref18}. Reviews of collaborative robots in quality control describe a sharp shift toward in-process inspection between 2014 and 2023, and tie that shift to the push toward zero-defect manufacturing under Industry 5.0 \cite{ref19}\cite{ref20}. Table \ref{tab:litsummary} lays out all the reviewed sources side by side.
+
+\begin{table}[t]
+\caption{Summary of reviewed vision- and contact-based approaches}
+\label{tab:litsummary}
+\centering
+\footnotesize
+\begin{tabular}{p{0.05\linewidth}p{0.42\linewidth}p{0.42\linewidth}}
+\hline
+Ref & Method & Application \\
+\hline
+\cite{ref1} & Domain-adapted detector backbone & Steel surface defects \\
+\cite{ref2} & RDD-YOLO, Res2Net + FPN & Steel surface defects \\
+\cite{ref5} & Multisensor digital twin & Robotic laser deposition \\
+\cite{ref15} & 6-DOF force-controlled arm, 5-point fit & Pipe interior inspection \\
+\cite{ref17} & 3-phase PID force control & Ultrasound scanning \\
+\cite{ref18} & Open-loop 6-DOF arm, digitizer probe & Dimensional 3D scanning \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Significant Methodologies}
+\label{sec:methodologies}
+Three of the contact-based papers end up anchoring the proposed methodology, mostly because each one relaxes an assumption the other two hold fixed. Reference \cite{ref18} solves inverse kinematics in closed form to drive a touch probe to a contact point. The end effector's pose gets written as a $4\times4$ homogeneous transform, the wrist center gets solved first since the last three joint axes all meet at one point, the first three joint angles fall out of treating the arm like a two-link planar mechanism, and the last three come from the residual rotation matrix once the wrist center is fixed. Tested against a calibrated sphere under ASME B89.4.22, the system hit a 0.036 mm average diameter error, though single-point repeatability got worse with reach, from $\pm$0.0387 mm at 120 mm out to $\pm$0.0712 mm at 500 mm. The main weakness is that it is open loop, so nothing senses the small elastic deflection that happens the instant the probe makes contact.
+
+Reference \cite{ref15} (ACES) asks a narrower geometric question instead: how few contact points does it actually take to describe a cylinder. Touch five points on a cylindrical wall, as long as no four of them are coplanar, and that is enough to solve for the axis direction $\hat a$, an axis point $q$, and the radius $r$, five unknowns pulled out of five point-to-axis distance constraints. The coplanarity condition doubles as a built-in error check, since breaking it means the fit has no unique solution, so any real implementation needs to check the calibration points are not degenerate before trusting whatever comes out.
+
+Reference \cite{ref17} picks up something \cite{ref15} and \cite{ref18} both skip over: a surface that is not rigid. The probe velocity splits into a tangential piece that holds a fixed scan speed and a normal piece driven by a PID law reacting to the gap between measured and target contact force,
+\begin{equation}
+v = v_\tau \hat\tau + v_n \hat n, \qquad v_n = K_p(F^* - F) + K_i\!\int (F^*-F)\,dt,
+\label{eq:force}
+\end{equation}
+and that held contact force to $5.18 \pm 0.23$ N against a 5 N target across twenty trials, with about 7 mm of positional repeatability, which is too coarse for dimensional work but good enough to keep the probe in stable contact. Table \ref{tab:anchor} lines the three anchor methods up side by side; together they point toward a design that borrows \cite{ref18}'s closed-form kinematics and \cite{ref17}'s tolerance for an imperfect contact surface, but applied to a rigid manufactured part instead of skin.
+
+\begin{table}[t]
+\caption{Comparison of anchor contact-based methods}
+\label{tab:anchor}
+\centering
+\footnotesize
+\begin{tabular}{p{0.06\linewidth}p{0.42\linewidth}p{0.4\linewidth}}
+\hline
+Ref & Result & Limitation \\
+\hline
+\cite{ref18} & 0.036 mm sphere-fit error, closed-form IK & Open loop, no contact-deflection sensing \\
+\cite{ref15} & 5-point cylinder determination & Fails on coplanar points; costly at fittings \\
+\cite{ref17} & Force held to $5.18\pm0.23$ N & $\sim$7 mm repeatability, no depth sensing \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Proposed Methodology}
+The proposed system puts a high-definition camera, a depth camera, and a laser displacement sensor on a six-degree-of-freedom robotic arm instead of relying on a fixed inspection station, so the sensor cluster can reach angles a stationary camera never could. A part shows up on the conveyor, trips a proximity sensor, and the arm swings to an initial viewing pose, where a convolutional neural network screens the image for dents, scratches, cracks, missing features, and surface marring. Parts that pass the visual check go straight to dimensional measurement with the laser and depth sensor; parts that trip a possible defect send the arm to a couple more viewpoints first, which cuts down on false positives from shadows or glare before anything actually gets rejected.
+
+The arm's motion follows the Denavit--Hartenberg (DH) convention, so each joint transform is a homogeneous matrix and the tool-frame pose comes out as the product of all six,
+\begin{equation}
+T_6^0(\mathbf{q}) = A_1(\theta_1)A_2(\theta_2)A_3(\theta_3)A_4(\theta_4)A_5(\theta_5)A_6(\theta_6),
+\label{eq:fk}
+\end{equation}
+with each individual link transform written as
+\begin{equation}
+A_i = \begin{bmatrix}
+c\theta_i & -s\theta_i c\alpha_i & s\theta_i s\alpha_i & a_i c\theta_i \\
+s\theta_i & c\theta_i c\alpha_i & -c\theta_i s\alpha_i & a_i s\theta_i \\
+0 & s\alpha_i & c\alpha_i & d_i \\
+0 & 0 & 0 & 1
+\end{bmatrix}.
+\label{eq:dh}
+\end{equation}
+Forward kinematics, Eq.~\eqref{eq:fk}, gives the sensor's pose once the joint angles are known; inverse kinematics goes the other way and recovers the joint angles $\mathbf{q}$ needed to put the sensor cluster at some desired inspection pose $T^*$, $\mathbf{q} = f^{-1}(T^*)$. Section \ref{sec:results} applies both to a reference arm and checks them against each other in MATLAB.
+
+Once the measurements come in, image features, depth data, and laser readings get fused together and checked against the part's CAD tolerance band; anything outside tolerance gets classified as a defect, and a report recording the defect type, location, dimensions, and image evidence gets written to a quality-control database. Comparing the robot's results against a CMM and manual inspection on parts with known defects is how we would find out whether the robotic result is statistically as good as, or better than, the methods it is meant to replace.
+
+\section{Implementation}
+The proposed platform is a six-degree-of-freedom industrial arm, something like the ABB IRB 120 or the FANUC LR Mate 200iD. Both are accurate and repeatable enough for precision inspection, and both share the six-revolute, spherical-wrist layout used in Section \ref{sec:results}. A custom bracket holds the camera, depth sensor, and laser displacement sensor at the end effector without dragging down arm performance. A conveyor feeds parts to a proximity sensor that kicks off the inspection cycle, and a programmable logic controller routes accepted parts back to the line and diverts rejects for rework.
+
+CAD models get built in SolidWorks and imported into robot simulation software, FANUC RoboGuide or ABB RobotStudio, for collision checking, reachability analysis, and path optimization before anything gets built physically. MATLAB is what verifies the forward and inverse kinematics and analyzes trajectories, which is exactly what Section \ref{sec:results} does; Python with OpenCV handles image processing, and a convolutional neural network classifies defects. The controller, vision system, and PLC all talk over Ethernet for real-time data exchange. At the software level, the cycle runs: detect part arrival, move to home, move to the inspection pose, capture an image, run defect classification, revisit extra viewpoints if a defect looks likely, take laser and depth measurements, fuse the sensor data, compare against CAD tolerance, sort the part, log the result. The system is built to take on more sensing later, such as ultrasonic or thermal probes, without needing a redesign, so the architecture should outlast whatever sensor choice gets made first.
+
+\section{Results and Analysis}
+\label{sec:results}
+This section takes the kinematic model from Section \ref{sec:methodologies} and applies it to a reference six-degree-of-freedom arm, verified computationally in MATLAB with the Robotics System Toolbox. Instead of retyping DH parameters from a secondary source, \texttt{loadrobot('abbIrb120')} pulls a \texttt{rigidBodyTree} built straight from ABB's own kinematic and visual description, so the forward-kinematics chain, joint limits, and inverse-kinematics results below all trace back to that model directly. The ABB IRB 120 got picked because its last three joint axes intersect at a single point, a property the literature relies on to derive closed-form inverse kinematics for this class of arm \cite{ref21}; the FANUC LR Mate 200iD shares that same layout, so the results below should carry over to either candidate from Section \ref{sec:methodologies}. The verification here uses the toolbox's general-purpose numerical solver rather than an actual closed-form implementation, and the Analysis below argues that choice ends up being informative on its own, not just a shortcut. Table \ref{tab:dh} lists the equivalent DH parameters for reference against the general form in Eq.~\eqref{eq:dh}.
+
+\begin{table}[t]
+\caption{DH parameters, reference six-DOF arm \cite{ref21}}
+\label{tab:dh}
+\centering
+\begin{tabular}{ccccc}
+\hline
+Link $i$ & $a_i$ (mm) & $\alpha_i$ (deg) & $d_i$ (mm) & $\theta_i$ \\
+\hline
+1 & 0   & 0   & 290 & var. \\
+2 & 270 & -90 & 0   & var. \\
+3 & 70  & 0   & 0   & var. \\
+4 & 0   & -90 & 302 & var. \\
+5 & 0   & 90  & 0   & var. \\
+6 & 0   & -90 & 72  & var. \\
+\hline
+\end{tabular}
+\end{table}
+
+Forward kinematics used \texttt{getTransform} on the loaded model; inverse kinematics used the toolbox's \texttt{inverseKinematics} object, a damped least-squares solver working on the manipulator Jacobian, with random restart turned on. Eight randomized target poses got generated by running forward kinematics on joint angles drawn from within 70\% of each joint's published limit, and the solver started from an initial guess perturbed $\pm 7.5^\circ$ per joint away from the true solution. Seven of the eight cases converged to a position error at or below $1.4\times10^{-5}$~mm in 23--29 iterations (Table \ref{tab:ikresults}). The eighth never converged, even with random restart turned on: it sat at 1500 iterations with a 32.7~mm position error and a small leftover orientation error, apparently stuck at a configuration its local search could not get out of. Figure \ref{fig:ikerror} plots the final position error per case on a log scale, so that outlier stays visible instead of getting averaged away, and Figure \ref{fig:ikiter} shows how many iterations the seven normal cases needed to converge.
+
+\begin{table}[t]
+\caption{Robotics System Toolbox IK verification, 8 randomized poses}
+\label{tab:ikresults}
+\centering
+\footnotesize
+\begin{tabular}{ccccc}
+\hline
+Case & Pos.\ err.\ (mm) & Ori.\ err.\ (deg) & Iterations & Converged \\
+\hline
+1 & $9.93\times10^{-7}$ & 0 & 28 & yes \\
+2 & $4.83\times10^{-7}$ & 0 & 25 & yes \\
+3 & $3.98\times10^{-6}$ & 0 & 27 & yes \\
+4 & $1.42\times10^{-5}$ & 0 & 23 & yes \\
+5 & $1.41\times10^{-5}$ & 0 & 26 & yes \\
+6 & $5.73\times10^{-6}$ & 0 & 29 & yes \\
+7 & $7.02\times10^{-6}$ & 0 & 27 & yes \\
+8 & 32.658 & 0.111 & 1500 & no \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_rst_ik_error.png}
+\caption{Final position error per randomized target pose (log scale); case 8 is the non-convergent outlier.}
+\label{fig:ikerror}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_rst_ik_iterations.png}
+\caption{Solver iterations required to converge, cases 1--7.}
+\label{fig:ikiter}
+\end{figure}
+
+Figure \ref{fig:workspace} shows the reachable envelope of the tool frame in the X--Z plane, swept across 90\% of the shoulder and elbow joint limits the toolbox model reports, with the base joint held at zero. This is a sanity check on the loaded model, not a new finding: an offset-wrist articulated arm is supposed to trace a distorted ring instead of a full disc, and Figure \ref{fig:workspace} shows the manufacturer model doing exactly that, spanning roughly $\pm650$~mm in $X$ and from $-321$ to $940$~mm in $Z$, with the gap near the center marking the volume the tool frame cannot reach unless the base joint rotates away from zero. What this check actually establishes is that the envelope is big enough to view a small-to-mid-size part from several angles without moving the conveyor, which is what the proposed methodology in Section \ref{sec:methodologies} needs to work. Figure \ref{fig:robotpose} renders the loaded model directly at one of the randomized test poses from Table \ref{tab:ikresults}, which confirms the recovered joint angles line up with a physically sensible arm configuration and not just a numerically self-consistent one.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_rst_workspace.png}
+\caption{Reachable workspace envelope, X--Z plane, base joint fixed at zero, colored by shoulder angle $\theta_2$.}
+\label{fig:workspace}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\linewidth]{fig_rst_robot_pose.png}
+\caption{Robotics System Toolbox rendering of the reference arm at a randomized test pose.}
+\label{fig:robotpose}
+\end{figure}
+
+\subsection{Analysis}
+Verification here just means the loaded model and the solver agree with each other, and Table \ref{tab:ikresults} mostly backs that up: seven of eight target poses got recovered to within $1.4\times10^{-5}$~mm, well inside any practical inspection tolerance, in under 30 iterations. The eighth case is the more useful result, honestly, and it explains directly why Section \ref{sec:methodologies} called out closed-form solvability as a property of this arm class in the first place: general-purpose numerical inverse kinematics is not guaranteed to converge from just any initial guess, even with random restarts on, so a solver call can fail on a completely ordinary target pose that an inspection cycle would ask for. A closed-form solver, the kind reference \cite{ref21} derives for this arm, does not search iteratively, so it cannot get stuck the way case 8 did; actually implementing that closed-form solution and cross-checking it against the toolbox model used here is the obvious next step this result points to, not something this paper is claiming to have already done. Until that happens, a production controller needs some kind of fallback, seeding from the previous viewpoint's solution, for instance. Reporting one non-convergent case out of eight gives a more honest picture of how general-purpose solvers actually behave than a clean 8-for-8 result would have, and it makes a stronger case for closed-form kinematics than just citing that the arm supports it would. Validation against a physical arm is still outstanding, since no prototype work cell exists yet; that step is planned against a CMM, as described in Section \ref{sec:methodologies}. The model itself assumes rigid links and ideal joint encoders, so it misses non-geometric error sources, gearbox backlash, joint compliance, thermal drift, that a real arm would add on top of everything reported here.
+
+The practical takeaway is that a fast inverse-kinematics solution exists for most reachable poses: 23 to 29 iterations for a case that converges is cheap enough that dozens of inspection viewpoints per part barely cost anything computationally, and the ring-shaped workspace in Figure \ref{fig:workspace}, backed up visually by Figure \ref{fig:robotpose}, is large enough for the multi-angle inspection this whole project depends on. The one case that did not converge is a reminder that a deployed controller needs a fallback path, not proof that the approach does not work.
+
+\section{Conclusion}
+This project looked at the shift away from manual and fixed-station inspection and toward robotic inspection and quality control, and proposed a framework that puts vision-based defect detection and dimensional verification on the same six-degree-of-freedom platform instead of splitting them across two systems. Forward and inverse kinematics for a representative reference arm got verified in MATLAB using the Robotics System Toolbox's own rigid-body-tree model of the ABB IRB 120: across eight randomized target poses, the inverse-kinematics solver recovered seven of them to within $1.4\times10^{-5}$~mm of the forward-kinematics ground truth in under 30 iterations, while the eighth turned up a real limitation of general-purpose numerical solvers rather than a mistake in the model. The resulting reachable workspace forms a distorted ring that comfortably covers a small-to-mid-size manufactured part from multiple angles. Combined with the sensor-fusion pipeline proposed in Section \ref{sec:methodologies}, this backs up the paper's central argument, that adaptive sensing and kinematic control belong on one platform instead of split across specialized single-purpose tools, while leaving physical validation against a coordinate measuring machine as the obvious next step before anyone should trust the accuracy numbers reported here in production.
+
+\section{Recommendations}
+The first priority is building an actual physical work cell instead of continuing to lean on kinematic simulation alone, since only hardware testing will show how much gearbox backlash, joint compliance, and thermal drift eat into the sub-millimeter agreement reported in Table \ref{tab:ikresults}. The case that failed to converge in Section \ref{sec:results} is a good argument for pairing the numerical solver with a closed-form solution, or at least a previous-pose-seeded fallback, before this gets anywhere near deployment, instead of trusting a single solver call on every inspection cycle. The defect-detection network needs a bigger, more varied training set, covering different lighting conditions, materials, and defect types, since detector performance tracks labeled data quality about as consistently as anything in this field, which \cite{ref3} and \cite{ref4} both point out. Later versions should add ultrasonic or thermal sensing to catch internal defects that optical inspection just cannot see, and hook the system into an Industry 4.0 manufacturing stack so inspection data actually feeds predictive maintenance and process optimization instead of sitting in a log nobody looks at.
+
+\section*{Acknowledgment}
+This research received no external funding. During the preparation of this work, the author(s) used Claude (Anthropic) to assist with proofreading and checking the validity of reported data and calculations. After using this tool, the author(s) reviewed and edited the content as needed and take full responsibility for the content of the publication.
+
+\begin{thebibliography}{00}
+\bibitem{ref1} F. Akhyar, Y. Liu, C.-Y. Hsu, T. K. Shih, and C.-Y. Lin, ``FDD: a deep learning-based steel defect detector,'' \textit{Int. J. Adv. Manuf. Technol.}, vol. 126, no. 3, pp. 1093--1107, 2023.
+\bibitem{ref2} C. Zhao, X. Shu, X. Yan, X. Zuo, and F. Zhu, ``RDD-YOLO: A modified YOLO for detection of steel surface defects,'' \textit{Measurement}, vol. 214, p. 112776, 2023.
+\bibitem{ref3} F. Bagherzadeh, T. Shafighfard, R. M. A. Khan, P. Szczuko, and M. Mieloszyk, et al., ``A systematic review of deep learning approaches for surface defect detection in industrial applications,'' \textit{Eng. Appl. Artif. Intell.}, 2023.
+\bibitem{ref4} Y. Ma et al., ``Surface defect inspection of industrial products with object detection deep networks: a systematic review,'' \textit{Artif. Intell. Rev.}, 2024.
+\bibitem{ref5} L. Chen, G. Bi, X. Yao, C. Tan, J. Su, N. P. H. Ng, Y. Chew, K. Liu, and S. K. Moon, ``Multisensor fusion-based digital twin for localized quality prediction in robotic laser-directed energy deposition,'' \textit{Robot. Comput.-Integr. Manuf.}, vol. 84, p. 102581, 2023.
+\bibitem{ref7} K. G. Amin, M. Patidar, P. K. Patidar, N. K. R. Rafaliya, J. Joshi, and D. Mishra, ``A review on robotics and automation techniques for quality inspection in Industry 4.0,'' in \textit{2025 IEEE Int. Conf. Adv. Comput. Res. Sci. Eng. Technol. (ACROSET)}, Indore, India, 2025, pp. 1--5.
+\bibitem{ref8} A. Villalonga, Y. J. Cruz, D. Alfaro, R. E. Haber, J. L. Mart\'inez-Lastra, and F. Casta\~no, ``Enhancing quality inspection in zero-defect manufacturing through robotic-machine collaboration,'' in \textit{2024 7th Iberian Robotics Conf. (ROBOT)}, Madrid, Spain, 2024, pp. 1--6.
+\bibitem{ref9} A. E. Duron, B. A. C. Stiles, and D. A. Torck, ``RIPTIDE: Robot inspecting parts to increase development efficiency,'' in \textit{2025 22nd Int. Conf. Ubiquitous Robots (UR)}, College Station, TX, USA, 2025, pp. 333--339.
+\bibitem{ref10} T. Brito, J. Queiroz, L. Piardi, L. A. Fernandes, J. Lima, and P. Leit\~ao, ``A machine learning approach for collaborative robot smart manufacturing inspection for quality control systems,'' \textit{Procedia Manuf.}, vol. 51, pp. 11--18, 2020.
+\bibitem{ref11} M. Zhou, C. Ge, and X. Xiong, ``Research on a rail-mounted concrete quality inspection robot system for aerial building machine,'' in \textit{2025 10th Int. Conf. Autom. Control Robot. Eng. (CACRE)}, 2025, pp. 9--16.
+\bibitem{ref12} S. Discepolo and P. Castellini, ``Neural network to retrieve features of a mechanical component acquired by a robotic inspection system,'' in \textit{2024 IEEE Int. Conf. Metrology for Extended Reality, Artif. Intell. Neural Eng. (MetroXRAINE)}, 2024, pp. 325--330.
+\bibitem{ref13} T. Czimmermann, M. Chiurazzi, M. Milazzo, S. Roccella, M. Barbieri, P. Dario, C. M. Oddo, and G. Ciuti, ``An autonomous robotic platform for manipulation and inspection of metallic surfaces in Industry 4.0,'' \textit{IEEE Trans. Autom. Sci. Eng.}, vol. 19, no. 3, pp. 1691--1706, 2022.
+\bibitem{ref14} D. Irvine and M. Narayanan, ``Inspection and quality control - an overview,'' in \textit{IEEE Tech. Appl. Conf. Workshops (Northcon/95)}, 1995, pp. 376--380.
+\bibitem{ref15} ``ACES: A teleoperated robotic solution to pipe inspection from the inside,'' arXiv:2405.09925, 2024.
+\bibitem{ref16} Z. Wu et al., ``Robotic ultrasound scanning end-effector with adjustable constant contact force,'' \textit{Cyborg Bionic Syst.}, 2025.
+\bibitem{ref17} ``Enabling mammography with co-robotic ultrasound,'' arXiv:2312.10309, 2023.
+\bibitem{ref18} ``Automatic contact-based 3D scanning using articulated robotic arm,'' presented at Int. Conf. Interactive Design Manuf., 2024.
+\bibitem{ref19} ``Collaborative robots for quality control: an overview of recent studies and emerging trends,'' \textit{J. Intell. Manuf.}, 2025.
+\bibitem{ref20} M. Al-Amin, ``Cobotics: the evolving roles and prospects of next-generation collaborative robots in Industry 5.0,'' \textit{J. Robot.}, vol. 2024, Art. no. 2918089, 2024.
+\bibitem{ref21} O. F. Seven and A. Ankarali, ``Inverse kinematic analysis of IRB120 robot arm,'' \textit{SETSCI Conf. Proc.}, vol. 4, no. 1, pp. 383--390, ISAS2019, Ankara, Turkey, 2019.
+\end{thebibliography}
+
+\end{document}
