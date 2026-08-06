@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IQCR — Can This Robot Arm Actually Reach Where It Needs To?</title>
+<meta name="description" content="Interactive 3D simulation of the IQCR project: an ABB IRB 120 six-axis arm, its real inverse-kinematics solver running live in the browser, and its reachable workspace envelope.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦾</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,500;0,600;0,700;0,800;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:      #101011;
+  --surface:   #17181a;
+  --surface-2: #1d1f22;
+  --ink:       #f3f1eb;
+  --ink-2:     #b9b3a6;
+  --muted:     #7c7669;
+  --grid:      #2b2c2e;
+  --baseline:  #3a3b3d;
+  --border:    rgba(243,241,235,0.09);
+
+  --amber:      #e07a3f;
+  --amber-dim:  #6b4326;
+  --blue:       #4c93e8;
+  --blue-dim:   #24384f;
+  --good:       #0ca30c;
+  --warning:    #fab219;
+  --critical:   #e66767;
+  --critical-tint: rgba(230,103,103,0.12);
+  --good-tint: rgba(12,163,12,0.12);
+
+  --space-xs: 4px; --space-sm: 8px; --space-md: 12px; --space-lg: 16px;
+  --space-xl: 24px; --space-2xl: 32px; --space-3xl: 48px; --space-4xl: 64px;
+
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  color-scheme: dark;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:var(--font-body); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--amber-dim); color:var(--ink);}
+.wrap{max-width:1120px; margin:0 auto; padding:0 clamp(20px,5vw,48px);}
+
+header.hero{ padding: clamp(56px,10vw,100px) 0 clamp(36px,6vw,56px); border-bottom:1px solid var(--border); }
+.kicker{
+  font-family:var(--font-mono); font-size:12px; letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--amber); font-weight:700; margin:0 0 var(--space-lg); display:flex; align-items:center; gap:10px;
+}
+.kicker::before{content:""; width:22px; height:1.5px; background:var(--amber); display:inline-block;}
+h1{
+  font-family:var(--font-display); font-weight:700; font-size:clamp(2rem,4.6vw,3.1rem);
+  line-height:1.08; letter-spacing:-0.01em; margin:0 0 var(--space-xl); max-width:20ch;
+}
+h1 em{font-style:normal; color:var(--amber);}
+.dek{font-size:1.08rem; color:var(--ink-2); max-width:64ch; margin:0 0 var(--space-lg); font-family:var(--font-body);}
+.byline{font-family:var(--font-mono); font-size:12.5px; color:var(--muted);}
+.byline a{color:var(--ink-2);}
+a{color:var(--amber); text-decoration:none; border-bottom:1px solid var(--amber-dim);}
+a:hover{border-bottom-color:var(--amber);}
+
+section{padding: clamp(44px,7vw,72px) 0;}
+section + section{border-top:1px solid var(--border);}
+.section-head{max-width:70ch; margin-bottom:var(--space-2xl);}
+.eyebrow{font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.09em; text-transform:uppercase; color:var(--muted); font-weight:600;}
+h2{font-family:var(--font-display); font-weight:700; font-size:clamp(1.4rem,2.6vw,1.9rem); margin:6px 0 10px; letter-spacing:-0.01em;}
+.lede{color:var(--ink-2); margin:0; font-size:1rem;}
+p{margin:0 0 1em; max-width:72ch;}
+.small{font-size:0.88rem; color:var(--ink-2);}
+
+.eli5{
+  background:var(--surface); border:1px solid var(--border); border-radius:3px;
+  padding:var(--space-xl) var(--space-2xl); max-width:76ch; margin:var(--space-xl) 0;
+}
+.eli5 .eli5-label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--amber); font-weight:700; margin-bottom:8px; display:block;}
+.eli5 p:last-child{margin-bottom:0;}
+
+.lab{display:grid; grid-template-columns:300px 1fr; gap:var(--space-2xl); align-items:start;}
+@media (max-width:900px){.lab{grid-template-columns:1fr;}}
+
+.panel{
+  background:var(--surface); border:1px solid var(--border); border-radius:4px;
+  padding:var(--space-xl); display:flex; flex-direction:column; gap:var(--space-lg);
+}
+
+.tabs{display:flex; gap:2px; background:var(--surface-2); border-radius:4px; padding:3px;}
+.tab-btn{
+  flex:1; font-family:var(--font-mono); font-size:12px; font-weight:600; letter-spacing:0.02em;
+  background:none; border:none; color:var(--muted); padding:9px 10px; border-radius:3px; cursor:pointer;
+  transition:all .15s ease-out;
+}
+.tab-btn.active{background:var(--amber); color:#1a0f06;}
+.tab-btn:not(.active):hover{color:var(--ink);}
+
+.field{display:flex; flex-direction:column; gap:5px;}
+.field label{display:flex; justify-content:space-between; font-size:12.5px; font-weight:600; color:var(--ink); font-family:var(--font-mono);}
+.field label .val{color:var(--amber); font-weight:500;}
+input[type=range]{-webkit-appearance:none; width:100%; height:3px; background:var(--baseline); border-radius:2px; outline:none; margin:2px 0;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--surface); border:2.5px solid var(--amber); cursor:pointer;}
+input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; background:var(--surface); border:2.5px solid var(--amber); cursor:pointer;}
+
+.btn{
+  font-family:var(--font-mono); font-size:12.5px; font-weight:700; letter-spacing:0.01em;
+  background:var(--amber); color:#1a0f06; border:none; border-radius:3px; padding:11px 16px;
+  cursor:pointer; transition:transform .12s ease-out, filter .15s; text-align:center;
+}
+.btn:hover{filter:brightness(1.12);}
+.btn:active{transform:scale(0.97);}
+.btn.secondary{background:var(--surface-2); color:var(--ink); border:1px solid var(--border);}
+.btn.secondary:hover{border-color:var(--amber); color:var(--amber); filter:none;}
+.btn[disabled]{opacity:0.5; cursor:progress;}
+.btn-row{display:flex; flex-direction:column; gap:8px;}
+
+.check-row{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-2); font-family:var(--font-mono);}
+.check-row input{accent-color:var(--amber);}
+
+.viewer-card{background:var(--surface); border:1px solid var(--border); border-radius:4px; overflow:hidden;}
+#canvas-host{width:100%; aspect-ratio:16/10; display:block; cursor:grab;}
+#canvas-host:active{cursor:grabbing;}
+.viewer-footer{
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+  padding:12px 18px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:12px; color:var(--muted);
+}
+.viewer-footer .readout{color:var(--ink-2); display:flex; gap:18px; flex-wrap:wrap;}
+.viewer-footer .readout b{color:var(--ink); font-weight:600;}
+
+.stat-row{display:flex; gap:var(--space-2xl); flex-wrap:wrap; margin-top:var(--space-lg);}
+.stat{min-width:130px;}
+.stat .stat-label{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:6px;}
+.stat .stat-value{font-family:var(--font-mono); font-weight:700; font-size:clamp(1.5rem,3vw,2rem); color:var(--ink); font-variant-numeric:tabular-nums;}
+.stat .stat-value .unit{font-size:0.5em; font-weight:500; color:var(--ink-2); margin-left:2px;}
+
+.badge{display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11.5px; font-weight:700; padding:4px 9px; border-radius:3px;}
+.badge.good{background:var(--good-tint); color:var(--good);}
+.badge.bad{background:var(--critical-tint); color:var(--critical);}
+
+.chart-card{background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:var(--space-xl);}
+.chart-title{font-size:13.5px; font-weight:600; margin:0 0 2px; font-family:var(--font-display);}
+.chart-note{font-size:12px; color:var(--muted); margin:0 0 var(--space-lg);}
+svg.chart{width:100%; height:auto; display:block; overflow:visible;}
+.axis-label{font-family:var(--font-mono); font-size:10.5px; fill:var(--muted);}
+.grid-line{stroke:var(--grid); stroke-width:1;}
+.baseline{stroke:var(--baseline); stroke-width:1;}
+.legend{display:flex; gap:var(--space-lg); margin-top:var(--space-md); flex-wrap:wrap;}
+.legend-item{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); font-family:var(--font-mono);}
+.legend-swatch{width:13px; height:2.5px; border-radius:2px; display:inline-block;}
+.legend-swatch.dot{width:8px; height:8px; border-radius:50%;}
+
+table{width:100%; border-collapse:collapse; font-size:13px; margin-top:var(--space-md);}
+th,td{text-align:right; padding:8px 10px; font-variant-numeric:tabular-nums; font-family:var(--font-mono); font-size:12px;}
+th:first-child,td:first-child{text-align:left; font-family:var(--font-body); font-weight:500; font-size:13px;}
+thead th{color:var(--muted); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid var(--border); font-family:var(--font-mono);}
+tbody tr{border-bottom:1px solid var(--grid);}
+tbody tr:last-child{border-bottom:none;}
+tbody tr.fail td{color:var(--critical);}
+.two-col{display:grid; grid-template-columns:1fr 1fr; gap:var(--space-2xl);}
+@media (max-width:900px){.two-col{grid-template-columns:1fr;}}
+
+footer{padding:var(--space-3xl) 0 var(--space-4xl); color:var(--muted); font-size:12.5px;}
+footer a{color:var(--ink-2);}
+footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl);}
+
+.pill{font-family:var(--font-mono); font-size:11px; background:var(--surface-2); color:var(--ink-2); border:1px solid var(--border); border-radius:20px; padding:3px 10px; display:inline-block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <p class="kicker">Live simulation</p>
+  <h1>Can a six-axis inspection robot actually reach where it needs to?</h1>
+  <p class="dek">IQCR proposes putting a camera, depth sensor, and laser probe on one robot arm instead of running parts between separate inspection stations. Before any of that sensor fusion gets built, the arm has to physically reach the poses the idea requires. This page runs the same ABB IRB 120 kinematics and the same inverse-kinematics solver as the paper — live, in your browser, in 3D.</p>
+  <p class="byline">Veer Sanghvi · <a href="conference_paper/IQCR.pdf">read the full paper (PDF)</a> · <a href="conference_paper/paper_explainer.md">plain-language explainer</a></p>
+</header>
+
+<div class="eli5" style="margin-top:32px;">
+  <span class="eli5-label">ELI5</span>
+  <p><strong>Forward kinematics</strong> is easy: "set these 6 joint angles" tells you exactly where the hand ends up — just matrix multiplication down the chain. <strong>Inverse kinematics (IK)</strong> is the hard direction a real controller has to solve constantly: "I want the camera at this exact spot and angle — what 6 joint angles get me there?" There's no clean formula for that on a 6-axis arm, so the solver below guesses, checks how wrong it is, nudges every joint a little, and repeats — usually dozens of times a second.</p>
+</div>
+
+<section id="viewer">
+  <div class="section-head">
+    <span class="eyebrow">01 — The arm, live</span>
+    <h2>ABB IRB 120, built from its actual Denavit–Hartenberg parameters</h2>
+    <p class="lede">Every link length, twist, and joint limit below is pulled straight from <code>iqcr_kinematics.m</code> — not a generic robot model. Drag to orbit, scroll to zoom.</p>
+  </div>
+
+  <div class="lab">
+    <div class="panel">
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-manual">Manual pose</button>
+        <button class="tab-btn" id="tab-ik">Inverse kinematics</button>
+      </div>
+
+      <div id="panel-manual" class="btn-row" style="gap:14px;">
+        <div class="field"><label>Joint 1 (base) <span class="val" id="v-q0">0°</span></label><input type="range" id="q0" min="-150" max="150" step="1" value="0"></div>
+        <div class="field"><label>Joint 2 (shoulder) <span class="val" id="v-q1">20°</span></label><input type="range" id="q1" min="-100" max="100" step="1" value="20"></div>
+        <div class="field"><label>Joint 3 (elbow) <span class="val" id="v-q2">20°</span></label><input type="range" id="q2" min="-90" max="50" step="1" value="20"></div>
+        <div class="field"><label>Joint 4 (wrist roll) <span class="val" id="v-q3">0°</span></label><input type="range" id="q3" min="-150" max="150" step="1" value="0"></div>
+        <div class="field"><label>Joint 5 (wrist pitch) <span class="val" id="v-q4">29°</span></label><input type="range" id="q4" min="-100" max="100" step="1" value="29"></div>
+        <div class="field"><label>Joint 6 (wrist yaw) <span class="val" id="v-q5">0°</span></label><input type="range" id="q5" min="-150" max="150" step="1" value="0"></div>
+        <button class="btn secondary" id="reset-manual">Reset pose</button>
+      </div>
+
+      <div id="panel-ik" class="btn-row" style="gap:12px; display:none;">
+        <p class="small" style="margin:0;">Generates a random valid joint configuration (like the paper's Monte-Carlo test poses), computes where that puts the hand, then perturbs the arm ±15° per joint and asks the solver to find its way back — the exact test the paper ran 8 times.</p>
+        <button class="btn" id="gen-target">Generate random target</button>
+        <button class="btn secondary" id="solve-ik" disabled>Solve →</button>
+        <div class="check-row"><input type="checkbox" id="show-target" checked><label for="show-target">show target pose</label></div>
+        <div id="ik-result"></div>
+      </div>
+
+      <div class="check-row" style="border-top:1px solid var(--border); padding-top:14px;">
+        <input type="checkbox" id="show-envelope">
+        <label for="show-envelope">overlay reachable workspace envelope</label>
+      </div>
+    </div>
+
+    <div class="viewer-card">
+      <div id="canvas-host"></div>
+      <div class="viewer-footer">
+        <span class="pill" id="mode-pill">MANUAL POSE</span>
+        <span class="readout">
+          <span>end-effector X <b id="ee-x">0</b> mm</span>
+          <span>Y <b id="ee-y">0</b> mm</span>
+          <span>Z <b id="ee-z">0</b> mm</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="ik-analysis">
+  <div class="section-head">
+    <span class="eyebrow">02 — Does the solver actually work?</span>
+    <h2>Convergence, live vs. the paper's MATLAB run</h2>
+    <p class="lede">The paper ran this exact damped-least-squares solver (λ = 10⁻³, numerical Jacobian, tolerance 10⁻⁹) on 8 random poses: 7 converged to sub-micron accuracy in under 30 iterations, and 1 got stuck 32.7&nbsp;mm off target after 1500 tries — a real failure mode of trial-and-error solvers, kept in the paper rather than hidden. Generate and solve a few targets above; each run lands in the chart and table below.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="chart-card">
+      <p class="chart-title">Position error vs. iteration (your browser)</p>
+      <p class="chart-note">Semilog — each solved run overlays a new curve.</p>
+      <div class="chart-wrap"><svg class="chart" id="chart-convergence" viewBox="0 0 460 260"></svg></div>
+    </div>
+    <div class="chart-card">
+      <p class="chart-title">Your solved poses</p>
+      <p class="chart-note">Same columns as the paper's Table (case, position error, orientation error, iterations, converged).</p>
+      <table id="live-table"><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Ori err (°)</th><th>Iters</th><th>OK?</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:var(--space-2xl);">
+    <div class="chart-card">
+      <p class="chart-title">The paper's actual MATLAB run</p>
+      <p class="chart-note">Hand-coded numerical IK (<code>iqcr_kinematics.m</code>) — 8 fixed test poses, seeded RNG.</p>
+      <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
+        <tbody id="paper-table"></tbody>
+      </table>
+    </div>
+    <div class="chart-card">
+      <p class="chart-title">Cross-checked with a MATLAB add-in</p>
+      <p class="chart-note">Same 8-pose test, solved instead by MATLAB's <strong>Robotics System Toolbox</strong> — ABB's own <code>loadrobot('abbIrb120')</code> model and its built-in <code>inverseKinematics</code> solver (<code>rst_verification.m</code>), so the hand-coded solver isn't grading its own homework.</p>
+      <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
+        <tbody id="rst-table"></tbody>
+      </table>
+      <p class="small" style="margin-top:12px;">Same story from an independent solver: 7 clean, 1 stuck at 1500 iterations — 32.66&nbsp;mm off. That agreement is the actual evidence the hand-coded solver is implemented correctly, not just self-consistent.</p>
+    </div>
+  </div>
+</section>
+
+<section id="workspace">
+  <div class="section-head">
+    <span class="eyebrow">03 — Where can it even reach?</span>
+    <h2>Reachable workspace envelope</h2>
+    <p class="lede">With the base joint locked at 0°, sweeping the shoulder and elbow across their full range traces the region the hand can physically enter — computed live over a 60×60 grid, same as the paper's <code>fig_workspace.png</code>.</p>
+  </div>
+  <div class="eli5">
+    <span class="eli5-label">ELI5</span>
+    <p>This isn't a discovery — any robotics textbook predicts a thick, curled ring for an arm shaped like this one, because the forearm and wrist are offset from the shoulder axis, so it can't fold back on itself to reach points near its own base. It's shown here as a <em>sanity check</em>: proof the digital model behaves the way real physics says it should, not a novel result.</p>
+  </div>
+  <div class="chart-card">
+    <p class="chart-title">Envelope in the X–Z plane (base joint = 0°)</p>
+    <div class="chart-wrap"><svg class="chart" id="chart-envelope" viewBox="0 0 640 480"></svg></div>
+  </div>
+</section>
+
+<footer>
+  <div class="rule"></div>
+  <p>IQCR — Inspection &amp; Quality Control Robots. Forward kinematics, the damped-least-squares IK solver, and the workspace sweep on this page are a direct JavaScript port of <a href="conference_paper/matlab_source/iqcr_kinematics.m">iqcr_kinematics.m</a>, running client-side — nothing here is precomputed. DH parameters, joint limits, and the Robotics-System-Toolbox cross-check are documented in the <a href="conference_paper/IQCR.pdf">full paper</a>.</p>
+</footer>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script src="kinematics.js"></script>
+<script type="module" src="scene.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
