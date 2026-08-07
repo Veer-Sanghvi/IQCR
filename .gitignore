@@ -6,3 +6,7 @@
 *.toc
 *.fls
 *.fdb_latexmk
+
+node_modules/
+test-results/
+playwright-report/

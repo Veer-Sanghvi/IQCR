@@ -1,0 +1,11 @@
+{
+  "name": "iqcr",
+  "private": true,
+  "description": "IQCR: Inspection and Quality Control Robots -- live 3D IK simulation.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
