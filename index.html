@@ -83,7 +83,6 @@ p{margin:0 0 1em; max-width:72ch;}
   background:var(--surface); border:1px solid var(--border); border-radius:3px;
   padding:var(--space-xl) var(--space-2xl); max-width:76ch; margin:var(--space-xl) 0;
 }
-.eli5 .eli5-label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--amber); font-weight:700; margin-bottom:8px; display:block;}
 .eli5 p:last-child{margin-bottom:0;}
 
 .lab{display:grid; grid-template-columns:300px 1fr; gap:var(--space-2xl); align-items:start;}
@@ -221,7 +220,6 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
 </header>
 
 <div class="eli5" style="margin-top:32px;">
-  <span class="eli5-label">ELI5</span>
   <p><strong>Forward kinematics</strong> is easy: "set these 6 joint angles" tells you exactly where the hand ends up, just matrix multiplication down the chain. <strong>Inverse kinematics (IK)</strong> is the hard direction a real controller has to solve constantly: "I want the camera at this exact spot and angle. What 6 joint angles get me there?" There's no clean formula for that on a 6-axis arm, so the solver below guesses, checks how wrong it is, nudges every joint a little, and repeats, usually dozens of times a second.</p>
 </div>
 
@@ -344,7 +342,6 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     <p class="lede">With the base joint locked at 0°, sweeping the shoulder and elbow across their full range traces the region the hand can physically enter. Computed live over a 60×60 grid, same as the paper's <code>fig_workspace.png</code>.</p>
   </div>
   <div class="eli5">
-    <span class="eli5-label">ELI5</span>
     <p>This isn't a discovery. Any robotics textbook predicts a thick, curled ring for an arm shaped like this one, because the forearm and wrist are offset from the shoulder axis, so it can't fold back on itself to reach points near its own base. It's shown here as a <em>sanity check</em>: proof the digital model behaves the way real physics says it should, not a novel result.</p>
   </div>
   <div class="chart-card">
