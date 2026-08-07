@@ -133,10 +133,14 @@ function appendLiveRow(caseNum, posErr, oriErr, iters, converged) {
   tbody.prepend(tr);
 }
 
+function currentPerturbDeg() { return +$("perturb").value; }
+function currentLambda() { return Math.pow(10, +$("lambda").value); }
+
 function generateTarget() {
   const qTrue = K.randomQ(Math.random);
   currentTarget = K.fk(qTrue);
-  currentQInit = qTrue.map((v, i) => clamp(v + deg2rad(15) * (Math.random() - 0.5), K.QMIN[i], K.QMAX[i]));
+  const perturb = deg2rad(currentPerturbDeg());
+  currentQInit = qTrue.map((v, i) => clamp(v + perturb * (Math.random() - 0.5) * 2, K.QMIN[i], K.QMAX[i]));
   const { frames } = K.fkChain(currentQInit);
   const pos = scene.updatePose(frames);
   updateEEReadout(pos);
@@ -148,7 +152,7 @@ function generateTarget() {
 function solveIK(onDone) {
   if (!currentTarget || !currentQInit) { if (onDone) onDone(); return; }
   $("solve-ik").disabled = true;
-  const result = K.ikSolve(currentQInit, currentTarget);
+  const result = K.ikSolve(currentQInit, currentTarget, { lambda: currentLambda() });
   // animate through the trace
   let i = 0;
   const stepEvery = Math.max(15, Math.min(60, Math.floor(600 / Math.max(result.trace.length, 1))));
@@ -211,6 +215,10 @@ function autoDemoLoop() {
 
 document.getElementById("viewer").addEventListener("pointerdown", stopAutoDemo, { once: true });
 autoDemoTimer = setTimeout(autoDemoLoop, 1400);
+
+// ---------------- IK solver-parameter sliders ----------------
+$("perturb").addEventListener("input", () => { $("v-perturb").textContent = `±${currentPerturbDeg()}°`; });
+$("lambda").addEventListener("input", () => { $("v-lambda").textContent = currentLambda().toExponential(0); });
 
 // ---------------- workspace envelope ----------------
 const envelopePts = K.workspaceEnvelope(60);

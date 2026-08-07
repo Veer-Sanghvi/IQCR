@@ -106,6 +106,12 @@ p{margin:0 0 1em; max-width:72ch;}
 .field{display:flex; flex-direction:column; gap:5px;}
 .field label{display:flex; justify-content:space-between; font-size:12.5px; font-weight:600; color:var(--ink); font-family:var(--font-mono);}
 .field label .val{color:var(--amber); font-weight:500;}
+.field .hint{
+  font-size:11px; color:var(--muted); font-family:var(--font-body);
+  max-height:0; opacity:0; overflow:hidden;
+  transition:max-height .18s ease-out, opacity .18s ease-out, margin-top .18s ease-out;
+}
+.field:hover .hint, .field:focus-within .hint{max-height:44px; opacity:1; margin-top:1px;}
 input[type=range]{-webkit-appearance:none; width:100%; height:3px; background:var(--baseline); border-radius:2px; outline:none; margin:2px 0;}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--surface); border:2.5px solid var(--amber); cursor:pointer;}
 input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; background:var(--surface); border:2.5px solid var(--amber); cursor:pointer;}
@@ -186,6 +192,22 @@ footer a{color:var(--ink-2);}
 footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl);}
 
 .pill{font-family:var(--font-mono); font-size:11px; background:var(--surface-2); color:var(--ink-2); border:1px solid var(--border); border-radius:20px; padding:3px 10px; display:inline-block;}
+
+/* ---------- Disclosure (collapsed-by-default deep dive) ---------- */
+.disclosure summary{
+  list-style:none; cursor:pointer;
+  display:flex; align-items:baseline; gap:10px;
+  padding:var(--space-lg) 0; border-top:1px solid var(--border);
+}
+.disclosure summary::-webkit-details-marker{display:none;}
+.disclosure-chevron{
+  color:var(--amber); font-size:13px; flex-shrink:0;
+  transition:transform .18s ease-out; display:inline-block;
+}
+.disclosure[open] .disclosure-chevron{transform:rotate(90deg);}
+.disclosure-title{font-family:var(--font-display); font-weight:700; font-size:1.15rem; display:block;}
+.disclosure-sub{font-size:0.85rem; color:var(--ink-2); display:block; margin-top:2px; font-weight:400; font-family:var(--font-body);}
+.disclosure summary:hover .disclosure-title{color:var(--amber);}
 </style>
 </head>
 <body>
@@ -228,7 +250,17 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
       </div>
 
       <div id="panel-ik" class="btn-row" style="gap:12px; display:none;">
-        <p class="small" style="margin:0;">Generates a random valid joint configuration (like the paper's Monte-Carlo test poses), computes where that puts the hand, then perturbs the arm ±15° per joint and asks the solver to find its way back: the exact test the paper ran 8 times.</p>
+        <p class="small" style="margin:0;">Generates a random valid joint configuration (like the paper's Monte-Carlo test poses), computes where that puts the hand, then perturbs the arm and asks the solver to find its way back: the same test the paper ran 8 times.</p>
+        <div class="field">
+          <label>Starting-guess error <span class="val" id="v-perturb">±7.5°</span></label>
+          <input type="range" id="perturb" min="0" max="45" step="0.5" value="7.5">
+          <span class="hint">how far off the initial guess is per joint; the paper's spread was ±7.5° and still hit 1 failure in 8. Push this higher to see failures happen more often.</span>
+        </div>
+        <div class="field">
+          <label>Damping (λ) <span class="val" id="v-lambda">1e-3</span></label>
+          <input type="range" id="lambda" min="-5" max="-1" step="0.1" value="-3">
+          <span class="hint">Levenberg-Marquardt damping; higher λ is more stable but slower, lower λ is faster but more prone to getting stuck</span>
+        </div>
         <button class="btn" id="gen-target">Generate random target</button>
         <button class="btn secondary" id="solve-ik" disabled>Solve →</button>
         <div class="check-row"><input type="checkbox" id="show-target" checked><label for="show-target">show target pose</label></div>
@@ -277,23 +309,32 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     </div>
   </div>
 
-  <div class="two-col" style="margin-top:var(--space-2xl);">
-    <div class="chart-card">
-      <p class="chart-title">The paper's actual MATLAB run</p>
-      <p class="chart-note">Hand-coded numerical IK (<code>iqcr_kinematics.m</code>): 8 fixed test poses, seeded RNG.</p>
-      <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
-        <tbody id="paper-table"></tbody>
-      </table>
+  <details class="disclosure" style="margin-top:var(--space-2xl);">
+    <summary>
+      <span class="disclosure-chevron">▸</span>
+      <span>
+        <span class="disclosure-title">Paper's reference results</span>
+        <span class="disclosure-sub">The original MATLAB run, plus an independent cross-check with a Robotics System Toolbox add-in. Expand to compare against your live runs above.</span>
+      </span>
+    </summary>
+    <div class="two-col" style="margin-top:var(--space-lg);">
+      <div class="chart-card">
+        <p class="chart-title">The paper's actual MATLAB run</p>
+        <p class="chart-note">Hand-coded numerical IK (<code>iqcr_kinematics.m</code>): 8 fixed test poses, seeded RNG.</p>
+        <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
+          <tbody id="paper-table"></tbody>
+        </table>
+      </div>
+      <div class="chart-card">
+        <p class="chart-title">Cross-checked with a MATLAB add-in</p>
+        <p class="chart-note">Same 8-pose test, solved instead by MATLAB's <strong>Robotics System Toolbox</strong>: ABB's own <code>loadrobot('abbIrb120')</code> model and its built-in <code>inverseKinematics</code> solver (<code>rst_verification.m</code>), so the hand-coded solver isn't grading its own homework.</p>
+        <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
+          <tbody id="rst-table"></tbody>
+        </table>
+        <p class="small" style="margin-top:12px;">Same story from an independent solver: 7 clean, 1 stuck at 1500 iterations, 32.66&nbsp;mm off. That agreement is the actual evidence the hand-coded solver is implemented correctly, not just self-consistent.</p>
+      </div>
     </div>
-    <div class="chart-card">
-      <p class="chart-title">Cross-checked with a MATLAB add-in</p>
-      <p class="chart-note">Same 8-pose test, solved instead by MATLAB's <strong>Robotics System Toolbox</strong>: ABB's own <code>loadrobot('abbIrb120')</code> model and its built-in <code>inverseKinematics</code> solver (<code>rst_verification.m</code>), so the hand-coded solver isn't grading its own homework.</p>
-      <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
-        <tbody id="rst-table"></tbody>
-      </table>
-      <p class="small" style="margin-top:12px;">Same story from an independent solver: 7 clean, 1 stuck at 1500 iterations, 32.66&nbsp;mm off. That agreement is the actual evidence the hand-coded solver is implemented correctly, not just self-consistent.</p>
-    </div>
-  </div>
+  </details>
 </section>
 
 <section id="workspace">
