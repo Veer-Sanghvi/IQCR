@@ -170,9 +170,11 @@ function solveIK(onDone) {
       if (liveCurves.length > 8) liveCurves.shift();
       renderConvergenceChart();
       appendLiveRow(caseCounter, result.posErrFinal, result.oriErrFinalDeg, result.iterations, result.converged);
+      const restartWord = `${result.restarts} restart${result.restarts === 1 ? "" : "s"}`;
+      const restartNote = result.restarts > 0 ? `, ${restartWord}` : "";
       $("ik-result").innerHTML = result.converged
-        ? `<span class="badge good">converged</span> <span class="small">${result.posErrFinal.toExponential(2)} mm, ${result.iterations} iterations</span>`
-        : `<span class="badge bad">did not converge</span> <span class="small">${result.posErrFinal.toFixed(2)} mm off after ${result.iterations} iterations. This happens; see analysis below.</span>`;
+        ? `<span class="badge good">converged</span> <span class="small">${result.posErrFinal.toExponential(2)} mm, ${result.iterations} iterations${restartNote}</span>`
+        : `<span class="badge bad">did not converge</span> <span class="small">${result.posErrFinal.toFixed(2)} mm off after ${result.iterations} iterations and ${restartWord}. This happens; see analysis below.</span>`;
       $("solve-ik").disabled = false;
       if (onDone) onDone();
     }
