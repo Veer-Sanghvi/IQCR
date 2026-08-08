@@ -1,5 +1,6 @@
-%% IQCR - Robotics System Toolbox verification, ABB IRB 120
-clear; clc; rng(7);
+function rst_verification
+% IQCR - Robotics System Toolbox verification, ABB IRB 120
+clear all; clc; rng(7);
 robot = loadrobot('abbIrb120','DataFormat','row','Gravity',[0 0 -9.81]);
 ee = 'tool0';
 
@@ -42,7 +43,7 @@ T = T(:, {'Case','PosErr_mm','OriErr_deg','Iterations','Converged'});
 disp(T)
 writetable(T, 'rst_ik_verification_results.csv');
 
-% --- color figures ---
+% color figures
 colors = lines(N);
 
 f1 = figure('Visible','off','Position',[100 100 520 360],'Color','w');
@@ -61,7 +62,7 @@ title('Inverse kinematics solver iterations per pose');
 grid on; set(gca,'Color','w');
 exportgraphics(f2, 'fig_rst_ik_iterations.png', 'Resolution', 200);
 
-% --- real robot visualization figure (color, toolbox-rendered) ---
+% real robot visualization figure (color, toolbox-rendered)
 f3 = figure('Visible','off','Position',[100 100 600 500],'Color','w');
 show(robot, q_true, 'PreservePlot', false, 'Frames','off');
 title('ABB IRB 120 reference model, randomized inspection pose');
@@ -72,3 +73,5 @@ fprintf('\nMean position error: %.4e mm\n', mean(results(:,1)));
 fprintf('Max position error: %.4e mm\n', max(results(:,1)));
 fprintf('Mean iterations: %.1f\n', mean(results(:,3)));
 fprintf('Converged: %d / %d\n', sum(results(:,4)), N);
+
+end
