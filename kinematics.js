@@ -107,6 +107,60 @@ function solve6(Ain, bin) {
   return x;
 }
 
+// Numerical Jacobian (central difference), same construction the IK solver
+// uses internally for its damped-least-squares step. Exposed standalone so
+// the manipulability measure below can be evaluated at any pose, not just
+// mid-solve.
+function jacobian(q, h = 1e-6) {
+  const J = [[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]];
+  for (let j = 0; j < 6; j++) {
+    const qp = q.slice(); qp[j] += h;
+    const qm = q.slice(); qm[j] -= h;
+    const Tp = fk(qp), Tm = fk(qm);
+    const dpos = [0, 1, 2].map((k) => (Tp[k][3] - Tm[k][3]) / (2 * h));
+    const Rp = rotOf(Tp), Rm = rotOf(Tm);
+    const dR = [[0,0,0],[0,0,0],[0,0,0]];
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) dR[a][b] = (Rp[a][b] - Rm[a][b]) / (2 * h);
+    const S = matMul3(dR, transpose3(Rm));
+    const w = [S[2][1], S[0][2], S[1][0]];
+    const col = [...dpos, ...w];
+    for (let r = 0; r < 6; r++) J[r][j] = col[r];
+  }
+  return J;
+}
+
+// Determinant of an n x n matrix via Gaussian elimination with partial pivoting.
+function detN(Min) {
+  const n = Min.length;
+  const A = Min.map((r) => r.slice());
+  let det = 1;
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+    if (piv !== col) { [A[col], A[piv]] = [A[piv], A[col]]; det = -det; }
+    const pivVal = A[col][col];
+    if (Math.abs(pivVal) < 1e-14) return 0;
+    det *= pivVal;
+    for (let r = col + 1; r < n; r++) {
+      const f = A[r][col] / pivVal;
+      for (let c = col; c < n; c++) A[r][c] -= f * A[col][c];
+    }
+  }
+  return det;
+}
+
+// Yoshikawa manipulability measure, w = sqrt(det(J J^T)) (Craig, Introduction
+// to Robotics, ch. 8, Eq. 8.5) -- a scalar distance from a kinematic
+// singularity (det(J) = 0, Eq. 8.4). w -> 0 as the arm loses a degree of
+// freedom in the current pose; larger w means more freedom to move the
+// end-effector uniformly in any direction for a given amount of joint speed.
+// The IRB 120's 6-DOF Jacobian is square (nonredundant manipulator), so per
+// Eq. 8.6 this reduces to w = |det(J)| -- used directly here rather than via
+// the full J J^T product, since they're identical for a square J.
+function manipulability(J) {
+  return Math.abs(detN(J));
+}
+
 // Damped least-squares (Levenberg-Marquardt) numerical IK, same algorithm and
 // tolerances as the paper's MATLAB script (lambda=1e-3, central-difference
 // Jacobian with h=1e-6, maxIter=200, tol=1e-9).
@@ -127,20 +181,7 @@ function ikSolveOnce(q0, Ttarget, { lambda = 1e-3, maxIter = 200, tol = 1e-9 } =
     const eNorm = Math.sqrt(e.reduce((s, v) => s + v * v, 0));
     if (eNorm < tol) break;
 
-    const J = [[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]];
-    for (let j = 0; j < 6; j++) {
-      const qp = q.slice(); qp[j] += h;
-      const qm = q.slice(); qm[j] -= h;
-      const Tp = fk(qp), Tm = fk(qm);
-      const dpos = [0, 1, 2].map((k) => (Tp[k][3] - Tm[k][3]) / (2 * h));
-      const Rp = rotOf(Tp), Rm = rotOf(Tm);
-      const dR = [[0,0,0],[0,0,0],[0,0,0]];
-      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) dR[a][b] = (Rp[a][b] - Rm[a][b]) / (2 * h);
-      const S = matMul3(dR, transpose3(Rm));
-      const w = [S[2][1], S[0][2], S[1][0]];
-      const col = [...dpos, ...w];
-      for (let r = 0; r < 6; r++) J[r][j] = col[r];
-    }
+    const J = jacobian(q, h);
     // (J'J + lambda I) dq = J' e
     const JT = J[0].map((_, c) => J.map((row) => row[c])); // transpose 6x6
     const JTJ = JT.map((row, r) => JT[0].map((_, c) => {
@@ -226,4 +267,5 @@ function workspaceEnvelope(steps = 60) {
 window.IQCR_KIN = {
   DH_A, DH_ALPHA, DH_D, QMIN, QMAX, HOME_Q,
   fk, fkChain, ikSolve, randomQ, mulberry32, workspaceEnvelope, posOf, rotOf,
+  jacobian, manipulability,
 };

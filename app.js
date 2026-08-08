@@ -67,12 +67,25 @@ function updateEEReadout(pos) {
   $("ee-y").textContent = pos[1].toFixed(0);
   $("ee-z").textContent = pos[2].toFixed(0);
 }
+
+// manipulability at the home pose, used to normalize the live readout to a
+// 0-100%-ish scale instead of an unlabeled mixed-units raw determinant
+const manipHome = K.manipulability(K.jacobian(K.HOME_Q));
+function updateManipReadout(q) {
+  const w = K.manipulability(K.jacobian(q));
+  const pct = manipHome > 0 ? (w / manipHome) * 100 : 0;
+  const el = $("manip-w");
+  el.textContent = `${pct.toFixed(pct < 10 ? 1 : 0)}%`;
+  el.style.color = pct < 5 ? "var(--red, #c0392b)" : pct < 20 ? "var(--amber)" : "";
+}
+
 function renderManual() {
   const q = qFromSliders();
   [0, 1, 2, 3, 4, 5].forEach((i) => { $(`v-q${i}`).textContent = `${(+$(`q${i}`).value).toFixed(0)}°`; });
   const { frames } = K.fkChain(q);
   const pos = scene.updatePose(frames);
   updateEEReadout(pos);
+  updateManipReadout(q);
 }
 [0, 1, 2, 3, 4, 5].forEach((i) => $(`q${i}`).addEventListener("input", renderManual));
 $("reset-manual").addEventListener("click", () => {
@@ -144,6 +157,7 @@ function generateTarget() {
   const { frames } = K.fkChain(currentQInit);
   const pos = scene.updatePose(frames);
   updateEEReadout(pos);
+  updateManipReadout(currentQInit);
   scene.setTarget(currentTarget, $("show-target").checked);
   $("solve-ik").disabled = false;
   $("ik-result").innerHTML = `<p class="small" style="margin-top:8px;">Target generated. Arm placed at a perturbed starting guess. Click Solve.</p>`;
@@ -161,6 +175,7 @@ function solveIK(onDone) {
     const { frames } = K.fkChain(q);
     const pos = scene.updatePose(frames);
     updateEEReadout(pos);
+    updateManipReadout(q);
     i++;
     if (i >= result.trace.length) {
       clearInterval(timer);
