@@ -41,8 +41,8 @@ for k = 1:N
         if (ang < 1e-9)
             oriErr = [0;0;0];
         else
-            axis = (1/(2*sin(ang))) * [Rerr(3,2)-Rerr(2,3); Rerr(1,3)-Rerr(3,1); Rerr(2,1)-Rerr(1,2)];
-            oriErr = ang*axis;
+            rot_axis = (1/(2*sin(ang))) * [Rerr(3,2)-Rerr(2,3); Rerr(1,3)-Rerr(3,1); Rerr(2,1)-Rerr(1,2)];
+            oriErr = ang*rot_axis;
         end
         e = [posErr; oriErr];
         errHist(it) = norm(posErr);
