@@ -22,13 +22,6 @@ Co-authored with Tyler Fong and Syed Irtiza Ali Shah at Wentworth Institute of T
 
 Full paper: [`conference_paper/IQCR.pdf`](conference_paper/IQCR.pdf)
 
-## Built with
-
-- Vanilla JavaScript (no framework) for the UI and live IK solver
-- [Three.js](https://threejs.org/) for the 3D arm viewer
-- SVG for the charts, rendered by hand from the live solver output
-- [Playwright](https://playwright.dev/) for browser tests
-
 The client-side solver in [`kinematics.js`](kinematics.js) is a direct JavaScript port of [`conference_paper/matlab_source/iqcr_kinematics.m`](conference_paper/matlab_source/iqcr_kinematics.m).
 
 ## Repo structure
