@@ -298,14 +298,9 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     </div>
   </div>
 
-  <details class="disclosure" style="margin-top:var(--space-2xl);">
-    <summary>
-      <span class="disclosure-chevron">▸</span>
-      <span>
-        <span class="disclosure-title">Paper's reference results</span>
-        <span class="disclosure-sub">The original MATLAB run, plus an independent cross-check with a Robotics System Toolbox add-in. Expand to compare against your live runs above.</span>
-      </span>
-    </summary>
+  <div style="margin-top:var(--space-2xl); padding-top:var(--space-lg); border-top:1px solid var(--border);">
+    <span class="disclosure-title" style="display:block;">Paper's reference results</span>
+    <span class="disclosure-sub" style="display:block;">The original MATLAB run, plus an independent cross-check with a Robotics System Toolbox add-in, compared against your live runs above.</span>
     <div class="two-col" style="margin-top:var(--space-lg);">
       <div class="chart-card">
         <p class="chart-title">The paper's actual MATLAB run</p>
@@ -323,7 +318,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
         <p class="small" style="margin-top:12px;">Same story from an independent solver: 7 clean, 1 stuck at 1500 iterations, 32.66&nbsp;mm off. That agreement is the actual evidence the hand-coded solver is implemented correctly, not just self-consistent.</p>
       </div>
     </div>
-  </details>
+  </div>
 </section>
 
 <section id="workspace">
