@@ -81,11 +81,7 @@ test.describe("IQCR robot-arm simulation", () => {
     expect(count).toBeGreaterThan(100);
   });
 
-  test("paper's reference results are collapsed by default and expand with 8 rows each", async ({ page }) => {
-    const details = page.locator("details.disclosure");
-    expect(await details.evaluate((el) => el.open)).toBe(false);
-    await details.locator("summary").click();
-    expect(await details.evaluate((el) => el.open)).toBe(true);
+  test("paper's reference results are visible on load with 8 rows each, no expand needed", async ({ page }) => {
     await expect(page.locator("#paper-table tr")).toHaveCount(8);
     await expect(page.locator("#rst-table tr")).toHaveCount(8);
   });
