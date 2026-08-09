@@ -271,10 +271,10 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
           <span>end-effector X <b id="ee-x">0</b> mm</span>
           <span>Y <b id="ee-y">0</b> mm</span>
           <span>Z <b id="ee-z">0</b> mm</span>
-          <span title="Yoshikawa manipulability index, w = |det(J)| (Craig, Introduction to Robotics, ch. 8, Eq. 8.5-8.6), shown as a percentage of its value at the home pose. Lower means closer to a kinematic singularity (det(J) = 0) -- the arm is about to lose a degree of freedom.">manipulability <b id="manip-w">100%</b></span>
+          <span title="Yoshikawa manipulability index, w = |det(J)| (Craig, Introduction to Robotics, ch. 8, Eq. 8.5-8.6), shown as a multiple of its value at the home pose. Lower means closer to a kinematic singularity (det(J) = 0) -- the arm is about to lose a degree of freedom.">manipulability <b id="manip-w">1.00x</b> home</span>
         </span>
       </div>
-      <p class="small" style="margin-top:6px;">Manipulability (beyond the paper): how far the current pose is from a kinematic singularity, computed live from the same numerical Jacobian the IK solver uses (Craig ch. 8). It drops toward 0% near singular configurations, where the arm loses a degree of freedom.</p>
+      <p class="small" style="margin-top:6px;">Manipulability (beyond the paper): how far the current pose is from a kinematic singularity, computed live from the same numerical Jacobian the IK solver uses (Craig ch. 8), shown relative to the home pose above. It drops toward 0x near singular configurations, where the arm loses a degree of freedom; many poses are more manipulable than home, so values above 1x are expected, not an error.</p>
     </div>
   </div>
 </section>

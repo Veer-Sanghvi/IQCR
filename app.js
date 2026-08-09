@@ -68,15 +68,20 @@ function updateEEReadout(pos) {
   $("ee-z").textContent = pos[2].toFixed(0);
 }
 
-// manipulability at the home pose, used to normalize the live readout to a
-// 0-100%-ish scale instead of an unlabeled mixed-units raw determinant
+// manipulability at the home pose, used to normalize the live readout into a
+// unitless ratio instead of an unlabeled mixed-units raw determinant. Shown
+// as a multiple of the home pose ("2.4x") rather than a percentage, since the
+// home pose isn't the workspace maximum: many poses are more manipulable
+// than home, so a "%" framing would routinely read past 100% (seen over
+// 1200% at some poses), which looks like an overflow bug even though it's
+// mathematically correct.
 const manipHome = K.manipulability(K.jacobian(K.HOME_Q));
 function updateManipReadout(q) {
   const w = K.manipulability(K.jacobian(q));
-  const pct = manipHome > 0 ? (w / manipHome) * 100 : 0;
+  const ratio = manipHome > 0 ? w / manipHome : 0;
   const el = $("manip-w");
-  el.textContent = `${pct.toFixed(pct < 10 ? 1 : 0)}%`;
-  el.style.color = pct < 5 ? "var(--red, #c0392b)" : pct < 20 ? "var(--amber)" : "";
+  el.textContent = `${ratio.toFixed(ratio < 10 ? 2 : 1)}x`;
+  el.style.color = ratio < 0.05 ? "var(--red, #c0392b)" : ratio < 0.20 ? "var(--amber)" : "";
 }
 
 function renderManual() {
