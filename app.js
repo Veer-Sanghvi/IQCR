@@ -54,7 +54,7 @@ function frame(svg, { x0, y0, w, h, xDomain, yDomain, xTicks = 5, yTicks = 5, xF
   return { xs, ys };
 }
 function pathFrom(pts, xs, ys) { return pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xs(p[0]).toFixed(2)} ${ys(p[1]).toFixed(2)}`).join(" "); }
-const CURVE_COLORS = ["#e07a3f", "#4c93e8", "#0ca30c", "#e66767", "#c98500", "#9085e9", "#199e70", "#d55181"];
+const CURVE_COLORS = ["#d29922", "#58a6ff", "#39d353", "#f85149", "#c98500", "#9085e9", "#199e70", "#d55181"];
 
 // ---------------- scene ----------------
 const scene = createRobotScene($("canvas-host"));
