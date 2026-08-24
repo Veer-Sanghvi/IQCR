@@ -18,7 +18,7 @@ Every run is compared against the paper's original MATLAB results and an indepen
 
 ## Paper
 
-Co-authored with Tyler Fong and Syed Irtiza Ali Shah at Wentworth Institute of Technology. Submitted to ICACR 2026; currently under review.
+Co-authored with Tyler Fong and Syed Irtiza Ali Shah at Wentworth Institute of Technology. Accepted to ICACR 2026 (IEEE, EI Compendex/Scopus indexed); presenting October 2026 in Nanjing, China.
 
 Full paper: [`conference_paper/IQCR.pdf`](conference_paper/IQCR.pdf)
 
