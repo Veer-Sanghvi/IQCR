@@ -10,9 +10,9 @@ IQCR proposes putting a camera, depth sensor, and laser probe on one robot arm i
 
 This page runs the same ABB IRB 120 kinematics and the same damped-least-squares inverse-kinematics solver as the paper, live in 3D:
 
-1. **Manual pose control** — drive all 6 joints directly and watch the arm move, built from its actual Denavit–Hartenberg parameters.
-2. **Inverse kinematics** — generate a random target pose, perturb the arm's starting guess, and watch the solver converge back (or fail to, roughly 1 in 8 times, a real failure mode of trial-and-error solvers that the paper keeps rather than hides).
-3. **Reachable workspace envelope** — a live 60×60 grid sweep showing where the hand can physically reach.
+1. **Manual pose control**: drive all 6 joints directly and watch the arm move, built from its actual Denavit–Hartenberg parameters.
+2. **Inverse kinematics**: generate a random target pose, perturb the arm's starting guess, and watch the solver converge back (or fail to, roughly 1 in 8 times, a real failure mode of trial-and-error solvers that the paper keeps rather than hides).
+3. **Reachable workspace envelope**: a live 60×60 grid sweep showing where the hand can physically reach.
 
 Every run is compared against the paper's original MATLAB results and an independent cross-check against MATLAB's Robotics System Toolbox, so the hand-coded solver isn't grading its own homework.
 
@@ -61,4 +61,4 @@ Tests run automatically on push/PR via GitHub Actions ([`.github/workflows/tests
 
 ## Contact
 
-Veer Sanghvi — [veer-sanghvi.github.io](https://veer-sanghvi.github.io/)
+Veer Sanghvi · [veer-sanghvi.github.io](https://veer-sanghvi.github.io/)

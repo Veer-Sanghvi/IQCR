@@ -263,7 +263,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
         <div class="field">
           <label for="lambda">Damping (λ) <span class="val" id="v-lambda">1e-3</span></label>
           <input type="range" id="lambda" min="-5" max="-1" step="0.1" value="-3">
-          <span class="hint">fixed damped-least-squares constant used within each attempt, same as the paper; higher λ is more stable but slower, lower λ is faster but more prone to stalling. If an attempt stalls, the solver restarts from a fresh random joint config rather than grinding on (see note below) — up to 5 times before giving up.</span>
+          <span class="hint">fixed damped-least-squares constant used within each attempt, same as the paper; higher λ is more stable but slower, lower λ is faster but more prone to stalling. If an attempt stalls, the solver restarts from a fresh random joint config rather than grinding on (see note below), up to 5 times before giving up.</span>
         </div>
         <button class="btn" id="gen-target">Generate random target</button>
         <button class="btn secondary" id="solve-ik" disabled>Solve →</button>
@@ -300,7 +300,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     <span class="eyebrow">02. Does the solver actually work?</span>
     <h2>Convergence, live vs. the paper's MATLAB run</h2>
     <p class="lede">The paper ran this exact damped-least-squares solver (λ = 10⁻³, numerical Jacobian, tolerance 10⁻⁹) on 8 random poses: 7 converged to sub-micron accuracy in under 30 iterations, and 1 got stuck 32.7&nbsp;mm off target after 1500 tries. That's a real failure mode of trial-and-error solvers, kept in the paper rather than hidden. Generate and solve a few targets above; each run lands in the chart and table below.</p>
-    <p class="lede">The MATLAB Robotics-Toolbox cross-check below (<code>rst_verification.m</code>) already used random restarts (<code>AllowRandomRestart</code>) and still hit the same stuck pose — evidence that particular target sits somewhere the arm genuinely struggles to reach cleanly, not just a tuning artifact. This live solver didn't have that safety net; it now does. When an attempt stalls it jumps to a fresh random joint configuration and retries, up to 5 times, keeping the closest result. Across 30,000 randomized offline trials spanning the full starting-guess-error slider range (±7.5° to ±45°), that took the stall rate from as high as ~0.5% down to 0%, with zero previously-successful cases made worse. A result badge below will say how many restarts a run needed.</p>
+    <p class="lede">The MATLAB Robotics-Toolbox cross-check below (<code>rst_verification.m</code>) already used random restarts (<code>AllowRandomRestart</code>) and still hit the same stuck pose, evidence that particular target sits somewhere the arm genuinely struggles to reach cleanly, not just a tuning artifact. This live solver didn't have that safety net; it now does. When an attempt stalls it jumps to a fresh random joint configuration and retries, up to 5 times, keeping the closest result. Across 30,000 randomized offline trials spanning the full starting-guess-error slider range (±7.5° to ±45°), that took the stall rate from as high as ~0.5% down to 0%, with zero previously-successful cases made worse. A result badge below will say how many restarts a run needed.</p>
   </div>
 
   <div class="two-col">
