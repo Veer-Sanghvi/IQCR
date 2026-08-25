@@ -258,7 +258,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
         <div class="field">
           <label for="perturb">Starting-guess error <span class="val" id="v-perturb">±7.5°</span></label>
           <input type="range" id="perturb" min="0" max="45" step="0.5" value="7.5">
-          <span class="hint">how far off the initial guess is per joint; the paper's spread was ±7.5° and still hit 1 failure in 8. Push this higher to see failures happen more often.</span>
+          <span class="hint">how far off the initial guess is per joint; the paper's spread was ±7.5°. Push this higher to see failures happen more often.</span>
         </div>
         <div class="field">
           <label for="lambda">Damping (λ) <span class="val" id="v-lambda">1e-3</span></label>
@@ -299,7 +299,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
   <div class="section-head">
     <span class="eyebrow">02. Does the solver actually work?</span>
     <h2>Convergence, live vs. the paper's MATLAB run</h2>
-    <p class="lede">The paper ran this exact damped-least-squares solver (λ = 10⁻³, numerical Jacobian, tolerance 10⁻⁹) on 8 random poses: 7 converged to sub-micron accuracy in under 30 iterations, and 1 got stuck 32.7&nbsp;mm off target after 1500 tries. That's a real failure mode of trial-and-error solvers, kept in the paper rather than hidden. Generate and solve a few targets above; each run lands in the chart and table below.</p>
+    <p class="lede">The paper ran this exact damped-least-squares solver protocol (λ = 10⁻³, numerical Jacobian, tolerance 10⁻⁹) on seeded random poses. The revised camera-ready converges on all 8 feasible reference poses in 21–37 iterations, and its failure study shows what a stuck solve at the 1500-iteration cap actually means: every reproducible failure traced to a target with no joint-limit-feasible solution, certified by a closed-form solver. Generate and solve a few targets above; each run lands in the chart and table below.</p>
     <p class="lede">The MATLAB Robotics-Toolbox cross-check below (<code>rst_verification.m</code>) already used random restarts (<code>AllowRandomRestart</code>) and still hit the same stuck pose, evidence that particular target sits somewhere the arm genuinely struggles to reach cleanly, not just a tuning artifact. This live solver didn't have that safety net; it now does. When an attempt stalls it jumps to a fresh random joint configuration and retries, up to 5 times, keeping the closest result. Across 30,000 randomized offline trials spanning the full starting-guess-error slider range (±7.5° to ±45°), that took the stall rate from as high as ~0.5% down to 0%, with zero previously-successful cases made worse. A result badge below will say how many restarts a run needed.</p>
   </div>
 
@@ -318,7 +318,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
 
   <div style="margin-top:var(--space-2xl); padding-top:var(--space-lg); border-top:1px solid var(--border);">
     <span class="disclosure-title" style="display:block;">Paper's reference results</span>
-    <span class="disclosure-sub" style="display:block;">The original MATLAB run, plus an independent cross-check with a Robotics System Toolbox add-in, compared against your live runs above.</span>
+    <span class="disclosure-sub" style="display:block;">The hand-coded MATLAB run, plus the revised paper's Robotics System Toolbox verification, compared against your live runs above.</span>
     <div class="two-col" style="margin-top:var(--space-lg);">
       <div class="chart-card">
         <p class="chart-title">The paper's actual MATLAB run</p>
@@ -329,11 +329,11 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
       </div>
       <div class="chart-card">
         <p class="chart-title">Cross-checked with a MATLAB add-in</p>
-        <p class="chart-note">Same 8-pose test, solved instead by MATLAB's <strong>Robotics System Toolbox</strong>: ABB's own <code>loadrobot('abbIrb120')</code> model and its built-in <code>inverseKinematics</code> solver (<code>rst_verification.m</code>), so the hand-coded solver isn't grading its own homework.</p>
+        <p class="chart-note">The revised paper's Table IV: 8 feasible poses (seed rng(7), MATLAB R2026a), solved by MATLAB's <strong>Robotics System Toolbox</strong> using ABB's own <code>loadrobot('abbIrb120')</code> model and its built-in <code>inverseKinematics</code> solver (<code>rst_verification_v2.m</code>), so the hand-coded solver isn't grading its own homework.</p>
         <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
           <tbody id="rst-table"></tbody>
         </table>
-        <p class="small" style="margin-top:12px;">Same story from an independent solver: 7 clean, 1 stuck at 1500 iterations, 32.66&nbsp;mm off. That agreement is the actual evidence the hand-coded solver is implemented correctly, not just self-consistent.</p>
+        <p class="small" style="margin-top:12px;">All 8 converge under the corrected sampling in the revised paper; the original submission's stuck case was root-caused there to a joint-limit-infeasible target, not a solver defect. Cross-solver agreement is the actual evidence the hand-coded solver is implemented correctly, not just self-consistent.</p>
       </div>
     </div>
   </div>
