@@ -175,15 +175,28 @@ end
 fclose(fid);
 
 %% ---- Figures -------------------------------------------------------------
-fs = 13; %#ok<NASGU>
 fs = 13;
 
-f1 = figure('Visible','off','Position',[100 100 560 400],'Color','w');
-semilogy(1:N, max(E1(:,1),1e-9), '-', 'Color',[0.2 0.2 0.7], 'LineWidth',1.6); hold on;
-scatter(1:N, max(E1(:,1),1e-9), 70, lines(N), 'filled');
-xlabel('Test pose index'); ylabel('Final position error (mm)');
-grid on; xlim([0.5 N+0.5]); set(gca,'FontSize',fs,'Color','w');
-exportgraphics(f1, 'fig_rst_ik_error.pdf', 'ContentType','vector');
+%% ---- Wall-clock timing (reported in the Analysis section) ---------------
+tConv = [];
+for k = 1:N
+    for r = 1:5
+        tic; iksolver(ee, T1{k}, weights, Q1i(k,:)); tConv(end+1) = toc; %#ok<AGROW>
+    end
+end
+kStall = f3fail(1);
+tStall = [];
+for r = 1:3
+    tic; iksolver(ee, T3{kStall}, weights, Q3i(kStall,:)); tStall(end+1) = toc; %#ok<AGROW>
+end
+tCF = [];
+for k = 1:N
+    for r = 1:20
+        tic; ikIRB120(T1{k}, true); tCF(end+1) = toc; %#ok<AGROW>
+    end
+end
+fprintf('Timing: converged %.1f ms, stalled %.2f s, closed-form %.2f ms (medians)\n', ...
+    1000*median(tConv), median(tStall), 1000*median(tCF));
 
 f2 = figure('Visible','off','Position',[100 100 560 400],'Color','w');
 b = bar(1:N, E1(:,3), 'FaceColor','flat'); b.CData = lines(N);
