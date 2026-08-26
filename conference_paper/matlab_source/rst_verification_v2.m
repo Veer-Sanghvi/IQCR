@@ -227,6 +227,18 @@ xlabel('X (mm)'); ylabel('Z (mm)');
 grid on; axis equal; set(gca,'FontSize',fs,'Color','w');
 exportgraphics(f5, 'fig_rst_workspace.pdf', 'ContentType','vector');
 
+% E3 residual chart: keeps the non-convergent cases visible on a log scale
+fE3 = figure('Visible','off','Position',[100 100 560 400],'Color','w');
+okE3 = E3(:,4)==1;
+semilogy(find(okE3), max(E3(okE3,1),1e-9), '.', 'Color',[0.25 0.4 0.7], 'MarkerSize', 10); hold on;
+semilogy(find(~okE3), E3(~okE3,1), 'p', 'MarkerSize', 13, ...
+    'MarkerFaceColor',[0.85 0.15 0.15], 'MarkerEdgeColor','k');
+yline(1e-3, ':', 'Color', [0.4 0.4 0.4]);
+xlabel('Test pose index'); ylabel('Final position error (mm)');
+legend({'converged','failed (infeasible)'}, 'Location','east', 'FontSize', fs-2);
+grid on; xlim([0 M+1]); set(gca,'FontSize',fs,'Color','w');
+exportgraphics(fE3, 'fig_rst_e3_residuals.pdf', 'ContentType','vector');
+
 f6 = figure('Visible','off','Position',[100 100 700 580],'Color','w');
 show(robot, Q1t(N,:), 'PreservePlot', false, 'Frames','off');
 view(135,20); set(gca,'FontSize',fs);
