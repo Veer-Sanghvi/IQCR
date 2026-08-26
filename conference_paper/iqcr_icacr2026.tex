@@ -8,6 +8,9 @@
 \usepackage{xcolor}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\setlength{\textfloatsep}{8pt plus 2pt minus 4pt}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
 \begin{document}
 
 \title{Inspection and Quality Control Robots}
@@ -153,6 +156,24 @@ CAD models get built in SolidWorks and imported into robot simulation software, 
 \label{sec:results}
 This section takes the kinematic model from Section \ref{sec:methodologies} and applies it to a reference six-degree-of-freedom arm, verified computationally in MATLAB R2026a with the Robotics System Toolbox. Instead of retyping DH parameters from a secondary source, \texttt{loadrobot('abbIrb120')} pulls a \texttt{rigidBodyTree} built straight from ABB's own kinematic and visual description, so the forward-kinematics chain, joint limits, and inverse-kinematics results below all trace back to that model directly. The ABB IRB 120 got picked because its last three joint axes intersect at a single point, a property the literature relies on to derive closed-form inverse kinematics for this class of arm \cite{ref21}; the FANUC LR Mate 200iD shares that same layout, so the results below should carry over to either candidate from Section \ref{sec:methodologies}. Two solvers run side by side throughout: the toolbox's general-purpose numerical solver (damped least squares on the manipulator Jacobian, random restart enabled) and a closed-form solver generated for this arm by the toolbox's \texttt{analyticalInverseKinematics} tool. Every experiment uses a recorded random seed and archives the full joint vectors, so all results below are reproducible from the published scripts and result files\footnote{Scripts, archived joint vectors, and result CSVs: \texttt{github.com/Veer-Sanghvi/IQCR}.}. Table \ref{tab:dh} lists the equivalent DH parameters for reference against the general form in Eq.~\eqref{eq:dh}.
 
+\begin{table}[t]
+\caption{DH parameters, reference six-DOF arm \cite{ref21}}
+\label{tab:dh}
+\centering
+\begin{tabular}{ccccc}
+\hline
+Link $i$ & $a_i$ (mm) & $\alpha_i$ (deg) & $d_i$ (mm) & $\theta_i$ \\
+\hline
+1 & 0   & 0   & 290 & var. \\
+2 & 270 & -90 & 0   & var. \\
+3 & 70  & 0   & 0   & var. \\
+4 & 0   & -90 & 302 & var. \\
+5 & 0   & 90  & 0   & var. \\
+6 & 0   & -90 & 72  & var. \\
+\hline
+\end{tabular}
+\end{table}
+
 One correction from the original submission needs stating up front. The original verification script read joint limits from the first six bodies of the loaded model, but the model's first body is a fixed base link, so that indexing froze the base joint at zero and applied each remaining joint's limits to its neighbor. Targets could therefore be generated from configurations up to a few degrees outside the true joint range. The experiments in Sections \ref{sec:feasible} and \ref{sec:batch} sample each revolute joint's own published limits, and Section \ref{sec:failstudy} deliberately retains the original recipe as a stress test, because it turns out to reproduce, and explain, the non-convergent case reported in the original submission.
 
 \subsection{Verification on feasible targets}
@@ -187,14 +208,14 @@ To move beyond hand-count sample sizes, 100 additional targets were generated wi
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.95\linewidth]{fig_rst_iter_hist.pdf}
+\includegraphics[width=0.85\linewidth]{fig_rst_iter_hist.pdf}
 \caption{Iteration counts across the 100-pose batch, seed \texttt{rng(11)}.}
 \label{fig:ikiterhist}
 \end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.95\linewidth]{fig_rst_residual_hist.pdf}
+\includegraphics[width=0.85\linewidth]{fig_rst_residual_hist.pdf}
 \caption{Distribution of final position residuals ($\log_{10}$, mm) across the 100-pose batch.}
 \label{fig:ikreshist}
 \end{figure}
@@ -207,7 +228,7 @@ The results separate cleanly. Six of the 100 targets were generated from configu
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.95\linewidth]{fig_rst_e3_residuals.pdf}
+\includegraphics[width=0.85\linewidth]{fig_rst_e3_residuals.pdf}
 \caption{Final position error per pose in the infeasible-target study (log scale), seed \texttt{rng(13)}. The five certified-infeasible failures (red stars) stay visible above the converged cluster rather than being averaged away.}
 \label{fig:e3residuals}
 \end{figure}
@@ -235,7 +256,7 @@ The sixth zero-branch target is the counterexample. Its generating configuration
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.95\linewidth]{fig_rst_workspace.pdf}
+\includegraphics[width=0.85\linewidth]{fig_rst_workspace.pdf}
 \caption{Reachable workspace envelope, X--Z plane, base joint fixed at zero, colored by shoulder angle $\theta_2$. Red stars mark the five infeasible targets from Table \ref{tab:failures} at their radial distance from the base axis: all five lie inside the position envelope, so their infeasibility is a joint-limit property of the full pose, not a workspace exclusion.}
 \label{fig:workspace}
 \end{figure}
@@ -244,28 +265,11 @@ Figure \ref{fig:robotpose} renders the loaded model directly at one of the feasi
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.8\linewidth]{fig_rst_robot_pose.png}
+\includegraphics[width=0.7\linewidth]{fig_rst_robot_pose.png}
 \caption{Robotics System Toolbox rendering of the reference arm at a feasible test pose.}
 \label{fig:robotpose}
 \end{figure}
 
-\begin{table}[t]
-\caption{DH parameters, reference six-DOF arm \cite{ref21}}
-\label{tab:dh}
-\centering
-\begin{tabular}{ccccc}
-\hline
-Link $i$ & $a_i$ (mm) & $\alpha_i$ (deg) & $d_i$ (mm) & $\theta_i$ \\
-\hline
-1 & 0   & 0   & 290 & var. \\
-2 & 270 & -90 & 0   & var. \\
-3 & 70  & 0   & 0   & var. \\
-4 & 0   & -90 & 302 & var. \\
-5 & 0   & 90  & 0   & var. \\
-6 & 0   & -90 & 72  & var. \\
-\hline
-\end{tabular}
-\end{table}
 
 \subsection{Analysis}
 Verification here means the loaded model and the solvers agree with each other, and the three experiments back that up from different directions. On feasible targets the numerical solver is reliable and cheap: 108 of 108 convergences across Sections \ref{sec:feasible} and \ref{sec:batch}, a median of 28 iterations, and worst-case residuals five orders of magnitude below any practical inspection tolerance. The closed-form solver reproduces the same targets at machine precision and, more usefully, enumerates every joint-limit-feasible branch, which a local iterative search cannot do.
@@ -285,6 +289,7 @@ The first priority is building an actual physical work cell instead of continuin
 \section*{Acknowledgment}
 This research received no external funding. During the preparation of this work, the author(s) used Claude (Anthropic) to assist with proofreading and checking the validity of reported data and calculations. After using this tool, the author(s) reviewed and edited the content as needed and take full responsibility for the content of the publication.
 
+\IEEEtriggeratref{8}
 \begin{thebibliography}{00}
 \bibitem{ref1} F. Akhyar, Y. Liu, C.-Y. Hsu, T. K. Shih, and C.-Y. Lin, ``FDD: a deep learning-based steel defect detector,'' \textit{Int. J. Adv. Manuf. Technol.}, vol. 126, no. 3, pp. 1093--1107, 2023.
 \bibitem{ref2} C. Zhao, X. Shu, X. Yan, X. Zuo, and F. Zhu, ``RDD-YOLO: A modified YOLO for detection of steel surface defects,'' \textit{Measurement}, vol. 214, p. 112776, 2023.
