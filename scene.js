@@ -38,7 +38,7 @@ export function createRobotScene(hostEl) {
   scene.add(rim);
 
   // floor grid in the X-Y plane (Z up)
-  const grid = new THREE.GridHelper(2400, 24, 0x30363d, 0x21262d);
+  const grid = new THREE.GridHelper(2400, 24, 0x2A2A2D, 0x1B1B1D);
   grid.rotation.x = Math.PI / 2;
   scene.add(grid);
 
