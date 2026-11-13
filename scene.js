@@ -9,8 +9,8 @@ const DARK_METAL = 0x232326;
 
 export function createRobotScene(hostEl) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x161b22);
-  scene.fog = new THREE.Fog(0x161b22, 1800, 4200);
+  scene.background = new THREE.Color(0x141415);
+  scene.fog = new THREE.Fog(0x141415, 1800, 4200);
 
   const camera = new THREE.PerspectiveCamera(42, 1, 1, 6000);
   camera.up.set(0, 0, 1);
