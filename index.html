@@ -129,7 +129,8 @@ body{
 .showpiece-host:active{cursor:grabbing;}
 .showpiece-canvas, .showpiece-leaders{position:absolute; inset:0; width:100%; height:100%; display:block;}
 .showpiece-leaders{pointer-events:none; overflow:visible;}
-.showpiece-leaders line{stroke:rgba(255,255,255,0.22); stroke-width:1; vector-effect:non-scaling-stroke;}
+.showpiece-leaders line{stroke:rgba(255,255,255,0.5); stroke-width:1; vector-effect:non-scaling-stroke;}
+.showpiece-leaders circle{fill:var(--page); stroke:#C6F432; stroke-width:1.5;}
 .showpiece-host[data-hero="ready"] .showpiece-leaders{opacity:1; transition:opacity .6s ease-out .2s;}
 .showpiece-leaders{opacity:0;}
 .showpiece-tags{
@@ -330,6 +331,8 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     <svg class="showpiece-leaders" aria-hidden="true">
       <line data-leader></line><line data-leader></line><line data-leader></line>
       <line data-leader></line><line data-leader></line><line data-leader></line>
+      <circle data-leader-dot r="3.5"></circle><circle data-leader-dot r="3.5"></circle><circle data-leader-dot r="3.5"></circle>
+      <circle data-leader-dot r="3.5"></circle><circle data-leader-dot r="3.5"></circle><circle data-leader-dot r="3.5"></circle>
     </svg>
     <div class="showpiece-tags" aria-hidden="true">
       <div class="showpiece-tag" data-joint><span>J1</span><b>+0.0°</b></div>
@@ -360,8 +363,8 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
 <section id="viewer">
   <div class="section-head">
     <span class="eyebrow">01. The arm, live</span>
-    <h2>ABB IRB 120, built from its actual Denavit–Hartenberg parameters</h2>
-    <p class="lede">Every link length, twist, and joint limit below is pulled straight from <code>iqcr_kinematics.m</code>, not a generic robot model. Drag to orbit, scroll to zoom.</p>
+    <h2>ABB IRB 120, built from its Denavit-Hartenberg parameters</h2>
+    <p class="lede">Link lengths, twists, the joint-2 offset and the joint limits are the IRB 120 table that MATLAB's Robotics System Toolbox exports for ABB's own model (<code>ikIRB120.m</code>), checked by <code>tests/fk-check.js</code>. Drag to orbit, scroll to zoom.</p>
   </div>
 
   <div class="lab">
@@ -372,12 +375,12 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
       </div>
 
       <div id="panel-manual" class="btn-row" style="gap:14px;">
-        <div class="field"><label for="q0">Joint 1 (base) <span class="val" id="v-q0">0°</span></label><input type="range" id="q0" min="-150" max="150" step="1" value="0"></div>
-        <div class="field"><label for="q1">Joint 2 (shoulder) <span class="val" id="v-q1">20°</span></label><input type="range" id="q1" min="-100" max="100" step="1" value="20"></div>
-        <div class="field"><label for="q2">Joint 3 (elbow) <span class="val" id="v-q2">20°</span></label><input type="range" id="q2" min="-90" max="50" step="1" value="20"></div>
-        <div class="field"><label for="q3">Joint 4 (wrist roll) <span class="val" id="v-q3">0°</span></label><input type="range" id="q3" min="-150" max="150" step="1" value="0"></div>
-        <div class="field"><label for="q4">Joint 5 (wrist pitch) <span class="val" id="v-q4">29°</span></label><input type="range" id="q4" min="-100" max="100" step="1" value="29"></div>
-        <div class="field"><label for="q5">Joint 6 (wrist yaw) <span class="val" id="v-q5">0°</span></label><input type="range" id="q5" min="-150" max="150" step="1" value="0"></div>
+        <div class="field"><label for="q0">Joint 1 (base) <span class="val" id="v-q0">0°</span></label><input type="range" id="q0" min="-165" max="165" step="1" value="0"></div>
+        <div class="field"><label for="q1">Joint 2 (shoulder) <span class="val" id="v-q1">20°</span></label><input type="range" id="q1" min="-110" max="110" step="1" value="20"></div>
+        <div class="field"><label for="q2">Joint 3 (elbow) <span class="val" id="v-q2">20°</span></label><input type="range" id="q2" min="-110" max="70" step="1" value="20"></div>
+        <div class="field"><label for="q3">Joint 4 (wrist roll) <span class="val" id="v-q3">0°</span></label><input type="range" id="q3" min="-160" max="160" step="1" value="0"></div>
+        <div class="field"><label for="q4">Joint 5 (wrist pitch) <span class="val" id="v-q4">29°</span></label><input type="range" id="q4" min="-120" max="120" step="1" value="29"></div>
+        <div class="field"><label for="q5">Joint 6 (wrist yaw) <span class="val" id="v-q5">0°</span></label><input type="range" id="q5" min="-400" max="400" step="1" value="0"></div>
         <button class="btn secondary" id="reset-manual">Reset pose</button>
       </div>
 
@@ -450,7 +453,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     <div class="two-col" style="margin-top:var(--space-lg);">
       <div class="chart-card">
         <p class="chart-title">The paper's actual MATLAB run</p>
-        <p class="chart-note">Hand-coded numerical IK (<code>iqcr_kinematics.m</code>): 8 fixed test poses, seeded RNG.</p>
+        <p class="chart-note">Hand-coded numerical IK (<code>iqcr_kinematics.m</code>): 8 fixed test poses, seeded RNG. Kept as published; see the correction below.</p>
         <table><thead><tr><th>Case</th><th>Pos err (mm)</th><th>Iters</th><th>OK?</th></tr></thead>
           <tbody id="paper-table"></tbody>
         </table>
@@ -464,6 +467,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
         <p class="small" style="margin-top:12px;">All 8 converge under the corrected sampling in the revised paper; the original submission's stuck case was root-caused there to a joint-limit-infeasible target, not a solver defect. Cross-solver agreement is the actual evidence the hand-coded solver is implemented correctly, not just self-consistent.</p>
       </div>
     </div>
+    <p class="small" id="dh-correction" style="margin-top:var(--space-lg);"><strong>Correction (Nov 2026):</strong> the paper's hand-coded MATLAB script paired the standard DH matrix with a twist list shifted by one joint, so its hand-coded table describes a six-axis arm with the IRB 120's link lengths but not its joint layout. The Robotics System Toolbox results, which use ABB's own model, are unaffected. This page now uses the corrected IRB 120 parameters (<code>iqcr_kinematics_irb120.m</code> is the like-for-like rerun script); the table on the left stays as published.</p>
   </div>
 </section>
 
@@ -486,7 +490,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     <p class="lede">Each line says what the paper covers and where it touches IQCR. None of them claims IQCR extends it.</p>
   </div>
   <ol class="small" style="padding-left:1.25rem; line-height:1.7; max-width:72ch;">
-    <li><a href="https://doi.org/10.1115/1.4011045">Denavit and Hartenberg (1955). A Kinematic Notation for Lower-Pair Mechanisms Based on Matrices. Journal of Applied Mechanics.</a> The original paper on DH parameters; this page builds the ABB IRB 120 arm from them.</li>
+    <li><a href="https://doi.org/10.1115/1.4011045">Denavit and Hartenberg (1955). A Kinematic Notation for Lower-Pair Mechanisms Based on Matrices. Journal of Applied Mechanics.</a> The original paper on DH parameters; this page builds the ABB IRB 120 arm from its table.</li>
     <li><a href="https://doi.org/10.1109/TSMC.1986.289285">Wampler (1986). Manipulator Inverse Kinematic Solutions Based on Vector Formulations and Damped Least-Squares Methods. IEEE Transactions on Systems, Man, and Cybernetics.</a> One of the founding papers on damped least-squares inverse kinematics, the solver type that runs here and in the MATLAB source.</li>
     <li><a href="https://doi.org/10.1080/2151237X.2005.10129202">Buss and Kim (2005). Selectively Damped Least Squares for Inverse Kinematics. Journal of Graphics Tools.</a> A refinement of damped least squares aimed at the convergence trouble seen in the one failed pose.</li>
     <li><a href="https://doi.org/10.1016/j.ifacol.2017.08.1209">Di Vito et al. (2017). A Comparison of Damped Least Squares Algorithms for Inverse Kinematics of Robot Manipulators. IFAC-PapersOnLine.</a> Benchmarks damped least-squares variants against each other, a reference point for the solver-versus-closed-form comparison above.</li>

@@ -1,13 +1,25 @@
-// ABB IRB120 forward/inverse kinematics: direct JS port of iqcr_kinematics.m.
+// ABB IRB 120 forward/inverse kinematics. Same damped-least-squares solver as
+// the paper's iqcr_kinematics.m, on the IRB 120's real standard-DH table.
 // Row-major 4x4 matrices as plain arrays: T[row][col], translation in T[i][3].
+//
+// Correction (Nov 2026): iqcr_kinematics.m paired the standard DH matrix
+// A_i = Rz(theta) Tz(d) Tx(a) Rx(alpha) with the twist list [0,-90,0,-90,90,-90],
+// which is shifted by one joint, and had no joint-2 offset. The table below is
+// the one MATLAB's Robotics System Toolbox exports for loadrobot('abbIrb120')
+// (conference_paper/matlab_source/ikIRB120.m, dhParams and thetaOffsets); with
+// it q = 0 is the upright pose with the TCP at (374, 0, 630) mm, as on ABB's
+// datasheet. tests/fk-check.js holds the numbers.
 "use strict";
 
-const DH_A     = [0, 270, 70, 0, 0, 0];               // mm
-const DH_ALPHA = [0, -90, 0, -90, 90, -90].map(d => d * Math.PI / 180); // rad
-const DH_D     = [290, 0, 0, 302, 0, 72];              // mm
+const DH_A      = [0, 270, 70, 0, 0, 0];                                   // mm
+const DH_ALPHA  = [-90, 0, -90, 90, -90, 0].map(d => d * Math.PI / 180);   // rad
+const DH_D      = [290, 0, 0, 302, 0, 72];                                 // mm
+const DH_OFFSET = [0, -90, 0, 0, 0, 0].map(d => d * Math.PI / 180);        // rad, added to q before the DH matrix
 
-const QMIN = [-150, -100, -90, -150, -100, -150].map(d => d * Math.PI / 180);
-const QMAX = [150, 100, 50, 150, 100, 150].map(d => d * Math.PI / 180);
+// ABB joint coordinates, full datasheet ranges: J1 +-165, J2 +-110, J3 -110/+70,
+// J4 +-160, J5 +-120, J6 +-400 (same values the toolbox model carries).
+const QMIN = [-165, -110, -110, -160, -120, -400].map(d => d * Math.PI / 180);
+const QMAX = [165, 110, 70, 160, 120, 400].map(d => d * Math.PI / 180);
 const HOME_Q = [0, 0.35, 0.35, 0, 0.5, 0]; // a visually pleasant, fully-in-limits starting pose
 
 function mat4Identity() {
@@ -41,7 +53,7 @@ function fkChain(q) {
   let T = mat4Identity();
   const frames = [T];
   for (let i = 0; i < 6; i++) {
-    T = matMul4(T, dhMatrix(q[i], DH_D[i], DH_A[i], DH_ALPHA[i]));
+    T = matMul4(T, dhMatrix(q[i] + DH_OFFSET[i], DH_D[i], DH_A[i], DH_ALPHA[i]));
     frames.push(T);
   }
   return { T, frames };
@@ -264,8 +276,8 @@ function workspaceEnvelope(steps = 60) {
   return pts;
 }
 
-window.IQCR_KIN = {
-  DH_A, DH_ALPHA, DH_D, QMIN, QMAX, HOME_Q,
+(typeof window !== "undefined" ? window : globalThis).IQCR_KIN = {
+  DH_A, DH_ALPHA, DH_D, DH_OFFSET, QMIN, QMAX, HOME_Q,
   fk, fkChain, ikSolve, randomQ, mulberry32, workspaceEnvelope, posOf, rotOf,
   jacobian, manipulability,
 };
