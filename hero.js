@@ -1,0 +1,384 @@
+// Showpiece hero: the same IRB 120 chain as scene.js (frames from kinematics.js's
+// fkChain) dressed as solid hardware: painted links, graphite joint housings,
+// a lime sensor at the flange, studio lighting from a procedural room
+// environment, a soft contact shadow and a calibration grid on the floor.
+// Exports buildArm() and makeStudio() so og/og-scene.html can render the
+// identical arm as a still, and createHero() for the live page.
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+const LIME = 0xC6F432;
+const PAINT = 0xEDECE8;
+const GRAPHITE = 0x242427;
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+function radialTexture(inner, outer, size = 256, hold = 0) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, inner);
+  if (hold > 0) grad.addColorStop(hold, inner);
+  grad.addColorStop(1, outer);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// The arm. Link i lives in a group whose matrix is frames[i + 1]; in that frame
+// the link runs from P_i = Rx(-alpha_i) * (-a_i, 0, -d_i) to the origin, which is
+// pose independent, so only the six group matrices change per frame.
+export function buildArm(K) {
+  const group = new THREE.Group();
+  const paint = new THREE.MeshPhysicalMaterial({ color: PAINT, roughness: 0.42, metalness: 0.0, clearcoat: 0.5, clearcoatRoughness: 0.3, envMapIntensity: 0.6 });
+  const graphite = new THREE.MeshStandardMaterial({ color: GRAPHITE, roughness: 0.34, metalness: 0.85, envMapIntensity: 0.9 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x151517, roughness: 0.9, metalness: 0.1 });
+  const limeLit = new THREE.MeshBasicMaterial({ color: LIME });
+
+  const add = (parent, geo, mat, { pos, quat, rotX, castShadow = true } = {}) => {
+    const m = new THREE.Mesh(geo, mat);
+    if (pos) m.position.copy(pos);
+    if (quat) m.quaternion.copy(quat);
+    if (rotX) m.rotation.x = rotX;
+    m.castShadow = castShadow;
+    m.receiveShadow = true;
+    parent.add(m);
+    return m;
+  };
+
+  // static base casting in the world frame
+  add(group, new THREE.CylinderGeometry(118, 124, 22, 48), graphite, { pos: new THREE.Vector3(0, 0, 11), rotX: Math.PI / 2 });
+  add(group, new THREE.CylinderGeometry(78, 108, 88, 48), paint, { pos: new THREE.Vector3(0, 0, 66), rotX: Math.PI / 2 });
+  add(group, new THREE.TorusGeometry(80, 4, 10, 48), rubber, { pos: new THREE.Vector3(0, 0, 110) });
+
+  // per-link radii: turret, upper arm, elbow offset, forearm, (zero-length wrist), flange
+  const linkR = [60, 44, 40, 34, 0, 24];
+  const housingR = [0, 68, 50, 42, 34, 30, 0]; // housing at frames[j] origin, j = 1..5
+  const housingH = [0, 120, 104, 92, 76, 64, 0];
+  const links = [];
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group();
+    g.matrixAutoUpdate = false;
+    group.add(g);
+    const P = new THREE.Vector3(-K.DH_A[i], 0, -K.DH_D[i]).applyAxisAngle(X_AXIS, -K.DH_ALPHA[i]);
+    const len = P.length();
+    if (len > 1 && linkR[i] > 0) {
+      const dir = P.clone().negate().normalize();
+      const q = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, dir);
+      const start = i === 0 ? P.clone().addScaledVector(dir, 112) : P.clone();
+      const segLen = start.distanceTo(new THREE.Vector3());
+      const mid = start.clone().addScaledVector(dir, segLen / 2);
+      const geo = i === 0
+        ? new THREE.CylinderGeometry(linkR[i], linkR[i] + 6, segLen, 40)
+        : new THREE.CapsuleGeometry(linkR[i], Math.max(segLen - linkR[i] * 2, 1), 6, 28);
+      add(g, geo, paint, { pos: mid, quat: q });
+      // a dark seam ring where the painted link meets its housing
+      if (i > 0) add(g, new THREE.TorusGeometry(linkR[i] + 1.5, 2.2, 8, 36), rubber, { pos: start.clone().addScaledVector(dir, linkR[i] * 0.9), quat: q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI / 2)) });
+    }
+    const j = i + 1;
+    if (housingR[j] > 0) {
+      add(g, new THREE.CylinderGeometry(housingR[j], housingR[j], housingH[j], 40), graphite, { rotX: Math.PI / 2 });
+      add(g, new THREE.CylinderGeometry(housingR[j] * 0.62, housingR[j] * 0.62, housingH[j] + 6, 32), rubber, { rotX: Math.PI / 2 });
+    }
+    links.push(g);
+  }
+
+  // sensor head at the tool point: graphite puck, lime emitter ring, glow, scan cone
+  const tool = links[5];
+  const toolDir = new THREE.Vector3(-K.DH_A[5], 0, -K.DH_D[5]).applyAxisAngle(X_AXIS, -K.DH_ALPHA[5]).negate().normalize();
+  const toolQ = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, toolDir);
+  add(tool, new THREE.CylinderGeometry(30, 26, 26, 36), graphite, { pos: toolDir.clone().multiplyScalar(6), quat: toolQ });
+  add(tool, new THREE.TorusGeometry(19, 3, 8, 40), limeLit, { pos: toolDir.clone().multiplyScalar(20), quat: toolQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI / 2)), castShadow: false });
+  add(tool, new THREE.CircleGeometry(14, 32), limeLit, { pos: toolDir.clone().multiplyScalar(20), quat: toolQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, -Math.PI / 2)), castShadow: false });
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTexture("rgba(198,244,50,0.9)", "rgba(198,244,50,0)"), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }));
+  glow.scale.set(150, 150, 1);
+  glow.position.copy(toolDir.clone().multiplyScalar(22));
+  tool.add(glow);
+  const cone = add(tool, new THREE.ConeGeometry(74, 190, 40, 1, true),
+    new THREE.MeshBasicMaterial({ color: LIME, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }),
+    { pos: toolDir.clone().multiplyScalar(22 + 95), quat: toolQ.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI)), castShadow: false });
+  cone.receiveShadow = false;
+
+  const tmp = new THREE.Matrix4();
+  function update(frames) {
+    for (let i = 0; i < 6; i++) {
+      const T = frames[i + 1];
+      tmp.set(
+        T[0][0], T[0][1], T[0][2], T[0][3],
+        T[1][0], T[1][1], T[1][2], T[1][3],
+        T[2][0], T[2][1], T[2][2], T[2][3],
+        0, 0, 0, 1
+      );
+      links[i].matrix.copy(tmp);
+      links[i].matrixWorldNeedsUpdate = true;
+    }
+  }
+  return { group, update, glow, cone };
+}
+
+// Three-point studio: warm key with a soft shadow, cool rim, low fill, a
+// procedural room for reflections, a fading dark floor with a contact shadow
+// and a lime calibration grid.
+export function makeEnvironment(renderer, scene) {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  pmrem.dispose();
+}
+
+export function makeStudio(renderer, scene) {
+
+  const key = new THREE.DirectionalLight(0xfff0dc, 2.6);
+  key.position.set(620, -560, 980);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.radius = 4;
+  key.shadow.bias = -0.0005;
+  Object.assign(key.shadow.camera, { left: -700, right: 700, top: 700, bottom: -700, near: 200, far: 2600 });
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xbcd0ff, 1.6);
+  rim.position.set(-760, 640, 420);
+  scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.45);
+  fill.position.set(-260, -860, 260);
+  scene.add(fill);
+
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(2400, 72),
+    new THREE.MeshStandardMaterial({ color: 0x0d0d0f, roughness: 0.96, metalness: 0.0, transparent: true, alphaMap: radialTexture("#ffffff", "#000000", 512, 0.18), envMapIntensity: 0.08 })
+  );
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  const contact = new THREE.Mesh(
+    new THREE.PlaneGeometry(520, 520),
+    new THREE.MeshBasicMaterial({ map: radialTexture("rgba(0,0,0,0.85)", "rgba(0,0,0,0)"), transparent: true, depthWrite: false })
+  );
+  contact.position.z = 0.6;
+  scene.add(contact);
+
+  // calibration grid: 100 mm cells, reach rings every 200 mm, all very faint
+  const pts = [];
+  for (let v = -1200; v <= 1200; v += 100) pts.push(v, -1200, 1.2, v, 1200, 1.2, -1200, v, 1.2, 1200, v, 1.2);
+  const gridGeo = new THREE.BufferGeometry();
+  gridGeo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  scene.add(new THREE.LineSegments(gridGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.045 })));
+  const ringPts = [];
+  for (let r = 200; r <= 800; r += 200) {
+    for (let k = 0; k < 96; k++) {
+      const a0 = (k / 96) * Math.PI * 2, a1 = ((k + 1) / 96) * Math.PI * 2;
+      ringPts.push(r * Math.cos(a0), r * Math.sin(a0), 1.4, r * Math.cos(a1), r * Math.sin(a1), 1.4);
+    }
+  }
+  const ringGeo = new THREE.BufferGeometry();
+  ringGeo.setAttribute("position", new THREE.Float32BufferAttribute(ringPts, 3));
+  scene.add(new THREE.LineSegments(ringGeo, new THREE.LineBasicMaterial({ color: LIME, transparent: true, opacity: 0.11 })));
+}
+
+// Position-only damped-least-squares step toward a 3D point, using the same
+// numerical Jacobian the page's IK solver uses. Orientation is left free so
+// the wrist settles naturally while the tool point tracks the pointer.
+function ikStep(K, q, target, gain = 0.35, lambda = 60) {
+  const T = K.fk(q);
+  const p = K.posOf(T);
+  const e = [target.x - p[0], target.y - p[1], target.z - p[2]];
+  const J = K.jacobian(q).slice(0, 3);
+  // A = J J^T + lambda^2 I (3x3), solve A y = e, dq = J^T y
+  const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    let s = 0; for (let k = 0; k < 6; k++) s += J[r][k] * J[c][k];
+    A[r][c] = s + (r === c ? lambda * lambda : 0);
+  }
+  const [[a, b, c], [d, e2, f], [g, h, i]] = A;
+  const det = a * (e2 * i - f * h) - b * (d * i - f * g) + c * (d * h - e2 * g);
+  if (Math.abs(det) < 1e-9) return q;
+  const inv = [
+    [(e2 * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e2) / det],
+    [(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det],
+    [(d * h - e2 * g) / det, (b * g - a * h) / det, (a * e2 - b * d) / det],
+  ];
+  const y = inv.map((row) => row[0] * e[0] + row[1] * e[1] + row[2] * e[2]);
+  return q.map((v, k) => {
+    const dq = J[0][k] * y[0] + J[1][k] * y[1] + J[2][k] * y[2];
+    return Math.max(K.QMIN[k], Math.min(K.QMAX[k], v + gain * dq));
+  });
+}
+
+export function createHero(host) {
+  const K = window.IQCR_KIN;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const canvas = host.querySelector("canvas") || host.appendChild(document.createElement("canvas"));
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+  // no synchronous link-status queries: shader compiles stay off the main thread
+  renderer.debug.checkShaderErrors = false;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+
+  const scene = new THREE.Scene();
+  makeStudio(renderer, scene);
+  const arm = buildArm(K);
+  scene.add(arm.group);
+
+  const camera = new THREE.PerspectiveCamera(28, 1, 10, 6000);
+  camera.up.copy(Z_AXIS);
+  camera.position.set(1180, -400, 440);
+  const controls = new OrbitControls(camera, host);
+  controls.target.set(70, 230, 240);
+  controls.enableZoom = false;
+  controls.enablePan = false;
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.07;
+  controls.rotateSpeed = 0.55;
+  controls.minPolarAngle = 0.55;
+  controls.maxPolarAngle = 1.42;
+  controls.update();
+
+  // ---- pointer target ----
+  const CENTER = new THREE.Vector3(150, 300, 300);
+  const SHOULDER = new THREE.Vector3(0, 0, K.DH_D[0]);
+  const REACH = 540;
+  const targetRaw = CENTER.clone();
+  const target = CENTER.clone();
+  let q = K.HOME_Q.slice();
+  let lastPointer = -Infinity;
+  let dragging = false;
+  let pointerDown = null;
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const plane = new THREE.Plane();
+  const hit = new THREE.Vector3();
+
+  function pointerToTarget(ev) {
+    const r = host.getBoundingClientRect();
+    ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const n = camera.getWorldDirection(new THREE.Vector3()).negate();
+    plane.setFromNormalAndCoplanarPoint(n, CENTER);
+    if (!ray.ray.intersectPlane(plane, hit)) return;
+    const off = hit.clone().sub(SHOULDER);
+    if (off.length() > REACH) off.setLength(REACH);
+    hit.copy(SHOULDER).add(off);
+    hit.z = Math.max(70, hit.z);
+    targetRaw.copy(hit);
+    lastPointer = performance.now();
+  }
+  host.addEventListener("pointermove", (ev) => {
+    if (reduceMotion.matches) return;
+    if (ev.pointerType === "touch" || dragging) return;
+    pointerToTarget(ev);
+  });
+  host.addEventListener("pointerdown", (ev) => { pointerDown = { x: ev.clientX, y: ev.clientY, t: performance.now() }; });
+  host.addEventListener("pointerup", (ev) => {
+    if (!pointerDown) return;
+    const moved = Math.hypot(ev.clientX - pointerDown.x, ev.clientY - pointerDown.y);
+    if (moved < 6 && !reduceMotion.matches) pointerToTarget(ev); // a tap places the target
+    pointerDown = null;
+  });
+  host.addEventListener("pointerleave", () => { lastPointer = performance.now() - 1800; });
+  controls.addEventListener("start", () => { dragging = true; });
+  controls.addEventListener("end", () => { dragging = false; });
+
+  // ---- annotation overlay: J1 to J6 leader lines and live angles ----
+  const tags = Array.from(host.querySelectorAll("[data-joint]"));
+  const lines = Array.from(host.querySelectorAll("[data-leader]"));
+  const anchors = tags.map(() => new THREE.Vector3());
+  const tcp = host.querySelector("[data-tcp]");
+  function updateOverlay(frames) {
+    const r = host.getBoundingClientRect();
+    const pts = frames.map((T) => new THREE.Vector3(T[0][3], T[1][3], T[2][3]));
+    // J1 sits on the turret, J2 to J6 at the frame origins that carry those axes
+    anchors[0].set(0, 0, 215);
+    for (let j = 1; j < 6; j++) anchors[j].copy(pts[j]);
+    const v = new THREE.Vector3();
+    tags.forEach((tag, j) => {
+      v.copy(anchors[j]).project(camera);
+      const x = (v.x * 0.5 + 0.5) * r.width, y = (-v.y * 0.5 + 0.5) * r.height;
+      const deg = (q[j] * 180) / Math.PI;
+      tag.lastElementChild.textContent = `${deg >= 0 ? "+" : "−"}${Math.abs(deg).toFixed(1).padStart(5, " ")}°`;
+      const tr = tag.getBoundingClientRect();
+      const line = lines[j];
+      if (line) line.setAttribute("x1", tr.right - r.left + 4), line.setAttribute("y1", tr.top - r.top + tr.height / 2), line.setAttribute("x2", x), line.setAttribute("y2", y);
+    });
+    if (tcp) {
+      const p = pts[6];
+      tcp.textContent = `TCP ${p.x.toFixed(0).padStart(5, " ")} ${p.y.toFixed(0).padStart(5, " ")} ${p.z.toFixed(0).padStart(5, " ")} mm`;
+    }
+  }
+
+  // ---- loop state (declared before resize() uses it) ----
+  let visible = true, hidden = document.hidden, running = false, needsRender = true;
+
+  // ---- sizing without layout shift: the host already has its CSS height ----
+  function resize() {
+    const w = host.clientWidth, h = host.clientHeight;
+    if (!w || !h) return;
+    camera.aspect = w / h;
+    // portrait phones: wider lens, camera pulled back and aimed lower so the
+    // whole arm sits above the copy; desktop keeps the long-lens studio look
+    const portrait = camera.aspect < 0.9;
+    camera.fov = portrait ? 50 : camera.aspect < 1.4 ? 34 : 28;
+    controls.target.set(70, portrait ? 230 : 140, portrait ? 130 : 230);
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    camera.position.copy(controls.target).addScaledVector(dir, portrait ? 1750 : 1280);
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+    needsRender = true;
+  }
+  new ResizeObserver(resize).observe(host);
+  resize();
+
+  // ---- loop: idle path when untouched, paused offscreen or in a hidden tab ----
+  const t0 = performance.now();
+  function frame(now) {
+    running = false;
+    if (!visible || hidden) return;
+    const t = (now - t0) / 1000;
+    if (!reduceMotion.matches) {
+      if (now - lastPointer > 2600 && !dragging) {
+        // slow idle sweep, a Lissajous drift around the working point
+        targetRaw.set(CENTER.x + 150 * Math.sin(t * 0.37), CENTER.y + 120 * Math.sin(t * 0.29 + 1.2), CENTER.z + 95 * Math.sin(t * 0.23 + 2.1));
+      }
+      target.lerp(targetRaw, 0.085);
+      q = ikStep(K, q, target);
+      arm.glow.material.opacity = 0.48 + 0.1 * Math.sin(t * 2.4);
+      needsRender = true;
+    }
+    controls.update();
+    const { frames } = K.fkChain(q);
+    arm.update(frames);
+    updateOverlay(frames);
+    if (needsRender || !reduceMotion.matches) renderer.render(scene, camera);
+    needsRender = false;
+    schedule();
+  }
+  function schedule() {
+    if (running || !visible || hidden) return;
+    running = true;
+    requestAnimationFrame(frame);
+  }
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; schedule(); }, { threshold: 0.02 }).observe(host);
+  document.addEventListener("visibilitychange", () => { hidden = document.hidden; schedule(); });
+  controls.addEventListener("change", () => { needsRender = true; schedule(); });
+  reduceMotion.addEventListener("change", () => { q = K.HOME_Q.slice(); target.copy(CENTER); needsRender = true; schedule(); });
+
+  // first frame synchronously so the canvas is never blank once it exists
+  const { frames } = K.fkChain(q);
+  arm.update(frames);
+  updateOverlay(frames);
+  renderer.render(scene, camera);
+  host.dataset.hero = "ready";
+  schedule();
+  // the reflection environment is the single most expensive setup step, so it
+  // lands in its own idle task after the first frame is already on screen
+  const addEnv = () => { makeEnvironment(renderer, scene); needsRender = true; schedule(); };
+  if ("requestIdleCallback" in window) requestIdleCallback(addEnv, { timeout: 2000 }); else setTimeout(addEnv, 250);
+  return { renderer, scene, camera, arm };
+}

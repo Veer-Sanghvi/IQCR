@@ -39,8 +39,13 @@ test.describe("prefers-reduced-motion", () => {
 });
 
 test.describe("IQCR robot-arm simulation", () => {
+  // app.js loads after the window load event, so wait for its init (it stamps
+  // <html data-auto-demo>) before the click that is meant to stop the auto-demo
+  const appReady = (page) => expect(page.locator("html")).toHaveAttribute("data-auto-demo", /running|off/);
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
+    await appReady(page);
     // clicking a tab is a pointerdown inside #viewer, which stops the auto-demo
     // so every test after this starts from a deterministic manual-mode state
     await page.locator("#tab-manual").click();
@@ -50,6 +55,7 @@ test.describe("IQCR robot-arm simulation", () => {
     const errors = [];
     page.on("pageerror", (err) => errors.push(err.message));
     await page.reload();
+    await appReady(page);
     await page.locator("#tab-manual").click();
     await expect(page).toHaveTitle(/Inspection and Quality Control Robots/);
     expect(errors).toEqual([]);
@@ -110,5 +116,26 @@ test.describe("IQCR robot-arm simulation", () => {
   test("paper's reference results are visible on load with 8 rows each, no expand needed", async ({ page }) => {
     await expect(page.locator("#paper-table tr")).toHaveCount(8);
     await expect(page.locator("#rst-table tr")).toHaveCount(8);
+  });
+});
+
+test.describe("showpiece hero", () => {
+  test("hero canvas renders the arm and the overlay reports joint angles", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (err) => errors.push(err.message));
+    await page.goto("/");
+    const host = page.locator("#hero-host");
+    await expect(host).toHaveAttribute("data-hero", "ready", { timeout: 15000 });
+    const canvas = page.locator("#hero-host canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    expect(box.width).toBeGreaterThan(200);
+    expect(box.height).toBeGreaterThan(200);
+    // a WebGL frame has been drawn: the canvas backing store matches the CSS box
+    const drawn = await canvas.evaluate((el) => el.width > 0 && el.height > 0);
+    expect(drawn).toBe(true);
+    await expect(page.locator("#hero-host [data-joint]")).toHaveCount(6);
+    await expect(page.locator("#hero-host [data-joint] b").first()).toHaveText(/\d+\.\d°/);
+    expect(errors).toEqual([]);
   });
 });

@@ -10,13 +10,14 @@
 <meta property="og:title" content="IQCR: Inspection and Quality Control Robots">
 <meta property="og:description" content="Interactive 3D simulation of an ABB IRB 120 six-axis arm with a real inverse-kinematics solver running live in the browser.">
 <meta property="og:url" content="https://veer-sanghvi.github.io/IQCR/">
-<meta property="og:image" content="https://veer-sanghvi.github.io/assets/og-card.png">
+<meta property="og:image" content="https://veer-sanghvi.github.io/IQCR/og/iqcr-og.png">
 <meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:height" content="627">
+<meta property="og:image:alt" content="A six-axis robot arm with a lime sensor at its flange, rendered in a dark studio, titled Inspection and Quality Control Robots">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="IQCR: Inspection and Quality Control Robots">
 <meta name="twitter:description" content="Interactive 3D simulation of an ABB IRB 120 six-axis arm with a real inverse-kinematics solver running live in the browser.">
-<meta name="twitter:image" content="https://veer-sanghvi.github.io/assets/og-card.png">
+<meta name="twitter:image" content="https://veer-sanghvi.github.io/IQCR/og/iqcr-og.png">
 <meta name="citation_title" content="Inspection and Quality Control Robots">
 <meta name="citation_author" content="Sanghvi, Veer">
 <meta name="citation_author" content="Fong, Tyler">
@@ -115,7 +116,57 @@ body{
 ::selection{background:var(--amber-dim); color:var(--ink);}
 .wrap{max-width:1120px; margin:0 auto; padding:0 clamp(20px,5vw,48px);}
 
-header.hero{ padding: clamp(56px,10vw,100px) 0 clamp(36px,6vw,56px); border-bottom:1px solid var(--border); }
+/* ---------- showpiece hero: fixed height, so the canvas arriving later never shifts layout ---------- */
+.showpiece{ border-bottom:1px solid var(--border); background:var(--page); }
+.showpiece-host{
+  position:relative; width:100%; height:clamp(400px, 66vh, 720px); overflow:hidden; cursor:grab;
+  background:
+    radial-gradient(60% 70% at 62% 58%, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 100%),
+    radial-gradient(40% 30% at 62% 88%, rgba(198,244,50,0.05) 0%, rgba(198,244,50,0) 100%),
+    var(--page);
+  touch-action:pan-y;
+}
+.showpiece-host:active{cursor:grabbing;}
+.showpiece-canvas, .showpiece-leaders{position:absolute; inset:0; width:100%; height:100%; display:block;}
+.showpiece-leaders{pointer-events:none; overflow:visible;}
+.showpiece-leaders line{stroke:rgba(255,255,255,0.22); stroke-width:1; vector-effect:non-scaling-stroke;}
+.showpiece-host[data-hero="ready"] .showpiece-leaders{opacity:1; transition:opacity .6s ease-out .2s;}
+.showpiece-leaders{opacity:0;}
+.showpiece-tags{
+  position:absolute; left:clamp(16px,4vw,48px); top:clamp(16px,3vw,36px);
+  display:flex; flex-direction:column; gap:6px; pointer-events:none;
+}
+.showpiece-tag{
+  display:flex; gap:10px; align-items:baseline; width:max-content;
+  font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.04em; color:var(--muted);
+  background:rgba(11,11,12,0.55); border:1px solid var(--border); border-radius:3px; padding:3px 8px;
+  font-variant-numeric:tabular-nums;
+}
+.showpiece-tag span{color:var(--ink-2); font-weight:600;}
+.showpiece-tag b{color:var(--ink); font-weight:500; white-space:pre;}
+.showpiece-copy{position:absolute; left:clamp(16px,4vw,48px); bottom:clamp(18px,3.5vw,40px); max-width:min(58ch, 70vw); pointer-events:none;}
+.showpiece-copy .kicker{margin-bottom:8px;}
+.showpiece-title{
+  font-family:var(--font-display); font-weight:700; letter-spacing:-0.01em; line-height:1.1;
+  font-size:clamp(1.25rem, 3vw, 2rem); margin:0 0 8px; text-wrap:balance;
+}
+.showpiece-hint{font-family:var(--font-mono); font-size:12px; color:var(--muted); margin:0;}
+.showpiece-readout{
+  position:absolute; right:clamp(16px,4vw,48px); bottom:clamp(18px,3.5vw,40px); margin:0;
+  font-family:var(--font-mono); font-size:11.5px; color:var(--muted); white-space:pre; font-variant-numeric:tabular-nums;
+  pointer-events:none;
+}
+@media (max-width:640px){
+  .showpiece-host{height:clamp(420px, 64vh, 600px);}
+  .showpiece-leaders{display:none;}
+  .showpiece-tags{flex-direction:row; flex-wrap:wrap; gap:4px; right:16px;}
+  .showpiece-tag{font-size:10.5px; padding:2px 6px; gap:6px;}
+  .showpiece-readout{display:none;}
+  .showpiece-copy{max-width:calc(100vw - 32px);}
+}
+@media (prefers-reduced-motion: reduce){ .showpiece-hint{display:none;} }
+
+header.hero{ padding: clamp(44px,7vw,72px) 0 clamp(36px,6vw,56px); border-bottom:1px solid var(--border); }
 .kicker{
   font-family:var(--font-mono); font-size:12px; letter-spacing:0.1em; text-transform:uppercase;
   color:var(--amber); font-weight:700; margin:0 0 var(--space-lg); display:flex; align-items:center; gap:10px;
@@ -273,6 +324,29 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
 </style>
 </head>
 <body>
+<section class="showpiece" id="hero" aria-label="ABB IRB 120 arm, live">
+  <div class="showpiece-host" id="hero-host">
+    <canvas class="showpiece-canvas" aria-hidden="true"></canvas>
+    <svg class="showpiece-leaders" aria-hidden="true">
+      <line data-leader></line><line data-leader></line><line data-leader></line>
+      <line data-leader></line><line data-leader></line><line data-leader></line>
+    </svg>
+    <div class="showpiece-tags" aria-hidden="true">
+      <div class="showpiece-tag" data-joint><span>J1</span><b>+0.0°</b></div>
+      <div class="showpiece-tag" data-joint><span>J2</span><b>+0.0°</b></div>
+      <div class="showpiece-tag" data-joint><span>J3</span><b>+0.0°</b></div>
+      <div class="showpiece-tag" data-joint><span>J4</span><b>+0.0°</b></div>
+      <div class="showpiece-tag" data-joint><span>J5</span><b>+0.0°</b></div>
+      <div class="showpiece-tag" data-joint><span>J6</span><b>+0.0°</b></div>
+    </div>
+    <div class="showpiece-copy">
+      <p class="kicker">Live kinematics</p>
+      <p class="showpiece-title">ABB IRB 120, six axes, solved in your browser</p>
+      <p class="showpiece-hint">Move the pointer and the tool follows it. Drag to orbit.</p>
+    </div>
+    <p class="showpiece-readout" data-tcp>TCP &nbsp;&nbsp;&nbsp;0 &nbsp;&nbsp;&nbsp;0 &nbsp;&nbsp;&nbsp;0 mm</p>
+  </div>
+</section>
 <div class="wrap">
 <header class="hero">
   <p class="kicker">Live simulation</p>
@@ -430,8 +504,19 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
 <script type="importmap">
 { "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }
 </script>
-<script src="kinematics.js"></script>
-<script type="module" src="scene.js"></script>
-<script type="module" src="app.js"></script>
+<script defer src="kinematics.js"></script>
+<script type="module">
+// three.js and everything that imports it (the lab viewer in app.js, the hero
+// in hero.js) load only after the page has painted and the load event fired,
+// so the 170 KB library never competes with first paint. The hero waits for
+// an idle slot on top of that.
+const start = () => setTimeout(() => {
+  import("./app.js");
+  const host = document.getElementById("hero-host");
+  const boot = () => import("./hero.js").then((m) => m.createHero(host)).catch(() => { host.dataset.hero = "failed"; });
+  if ("requestIdleCallback" in window) requestIdleCallback(boot, { timeout: 1500 }); else boot();
+}, 0);
+if (document.readyState === "complete") start(); else addEventListener("load", start, { once: true });
+</script>
 </body>
 </html>

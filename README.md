@@ -31,6 +31,8 @@ The client-side solver in [`kinematics.js`](kinematics.js) is a direct JavaScrip
 index.html                              Page markup and styling
 kinematics.js                           Client-side forward/inverse kinematics solver
 scene.js / app.js                       3D viewer and UI wiring
+hero.js                                 Showpiece hero: the same arm as solid hardware, pointer-tracking IK
+og/                                     Link-preview card source and its Playwright render script
 tests/iqcr.spec.js                      Playwright tests
 conference_paper/
   IQCR.pdf                              Paper as submitted
