@@ -1,10 +1,16 @@
+<p align="center">
+  <a href="https://veer-sanghvi.github.io/IQCR/"><img src="assets/readme/banner.png" alt="IQCR banner: the ABB IRB 120 arm reaching a machined flange target at the 120 mm standoff, drawn as an engineering sheet with link dimensions from the DH table" width="100%"></a>
+</p>
+
 # IQCR: Inspection and Quality Control Robots
 
 Live 3D simulation of an ABB IRB 120 six-axis arm and its inverse-kinematics solver, running client-side in the browser.
 
+[![Tests](https://github.com/Veer-Sanghvi/IQCR/actions/workflows/tests.yml/badge.svg)](https://github.com/Veer-Sanghvi/IQCR/actions/workflows/tests.yml)
+
 **[Live demo →](https://veer-sanghvi.github.io/IQCR/)**
 
-## About
+## What the page does
 
 IQCR proposes putting a camera, depth sensor, and laser probe on one robot arm instead of running parts between separate inspection stations. Before any of that sensor fusion gets built, the arm has to physically reach the poses the idea requires.
 
@@ -16,6 +22,10 @@ This page runs the same ABB IRB 120 kinematics and the same damped-least-squares
 
 Every run is compared against the paper's original MATLAB results and an independent cross-check against MATLAB's Robotics System Toolbox, so the hand-coded solver isn't grading its own homework.
 
+## Correction (Nov 2026)
+
+The paper's hand-coded MATLAB script paired the standard DH matrix with a twist list shifted by one joint, so its hand-coded table describes a six-axis arm with the IRB 120's link lengths but not its joint layout. The Robotics System Toolbox results, which use ABB's own model, are unaffected. This page now uses the corrected IRB 120 parameters: twists [-90, 0, -90, 90, -90, 0] deg, a joint-2 offset of -90 deg, and the datasheet joint limits, taken from the table the toolbox exports for `loadrobot('abbIrb120')` ([`ikIRB120.m`](conference_paper/matlab_source/ikIRB120.m)). With them q = 0 is the upright pose with the TCP at (374, 0, 630) mm. [`tests/fk-check.js`](tests/fk-check.js) checks that pose and reproduces the 108 recorded toolbox TCP distances in the repo's CSVs. `iqcr_kinematics.m` is kept unchanged as the script behind the published table; [`iqcr_kinematics_irb120.m`](conference_paper/matlab_source/iqcr_kinematics_irb120.m) is the like-for-like rerun on the corrected arm.
+
 ## Paper
 
 Co-authored with Tyler Fong and Syed Irtiza Ali Shah at Wentworth Institute of Technology. Presented at IEEE ICACR 2026 (Nanjing, China, October 2026).
@@ -23,30 +33,7 @@ Co-authored with Tyler Fong and Syed Irtiza Ali Shah at Wentworth Institute of T
 Paper as submitted: [`conference_paper/IQCR.pdf`](conference_paper/IQCR.pdf)
 Final paper (ICACR 2026): [`conference_paper/IQCR_camera_ready_6page.pdf`](conference_paper/IQCR_camera_ready_6page.pdf)
 
-The client-side solver in [`kinematics.js`](kinematics.js) is the damped-least-squares solver of [`conference_paper/matlab_source/iqcr_kinematics.m`](conference_paper/matlab_source/iqcr_kinematics.m), ported to JavaScript and run on the corrected IRB 120 table below.
-
-### Correction (Nov 2026)
-
-The paper's hand-coded MATLAB script paired the standard DH matrix with a twist list shifted by one joint, so its hand-coded table describes a six-axis arm with the IRB 120's link lengths but not its joint layout. The Robotics System Toolbox results, which use ABB's own model, are unaffected. This page now uses the corrected IRB 120 parameters: twists [-90, 0, -90, 90, -90, 0] deg, a joint-2 offset of -90 deg, and the datasheet joint limits, taken from the table the toolbox exports for `loadrobot('abbIrb120')` ([`ikIRB120.m`](conference_paper/matlab_source/ikIRB120.m)). With them q = 0 is the upright pose with the TCP at (374, 0, 630) mm. [`tests/fk-check.js`](tests/fk-check.js) checks that pose and reproduces the 108 recorded toolbox TCP distances in the repo's CSVs. `iqcr_kinematics.m` is kept unchanged as the script behind the published table; [`iqcr_kinematics_irb120.m`](conference_paper/matlab_source/iqcr_kinematics_irb120.m) is the like-for-like rerun on the corrected arm.
-
-## Repo structure
-
-```
-index.html                              Page markup and styling
-kinematics.js                           Client-side forward/inverse kinematics solver
-arm-model.js                            The IRB 120 model (links, housings, sensor, studio lighting) shared by the viewer and the hero
-scene.js / app.js                       3D viewer and UI wiring; IK targets shown as a flange part to inspect
-hero.js                                 Showpiece hero: the same arm, pointer-tracking IK
-og/                                     Link-preview card source and its Playwright render script
-tests/iqcr.spec.js                      Playwright tests
-tests/fk-check.js                       Node check of the DH table against the toolbox CSVs
-conference_paper/
-  IQCR.pdf                              Paper as submitted
-  IQCR_camera_ready_6page.pdf           Final paper (ICACR 2026)
-  matlab_source/iqcr_kinematics.m       Original hand-coded MATLAB solver (as published, shifted twist list)
-  matlab_source/iqcr_kinematics_irb120.m  Same solver on the corrected IRB 120 DH table
-  matlab_source/rst_verification.m      Independent cross-check via Robotics System Toolbox
-```
+The client-side solver in [`kinematics.js`](kinematics.js) is the damped-least-squares solver of [`conference_paper/matlab_source/iqcr_kinematics.m`](conference_paper/matlab_source/iqcr_kinematics.m), ported to JavaScript and run on the corrected IRB 120 table above.
 
 ## Running locally
 
@@ -68,7 +55,27 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
-Tests run automatically on push/PR via GitHub Actions ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)).
+`npm test` runs [`tests/fk-check.js`](tests/fk-check.js) (the DH table against the toolbox CSVs) and then the Playwright suite. Tests run automatically on push/PR via GitHub Actions ([`.github/workflows/tests.yml`](.github/workflows/tests.yml)).
+
+## Repo layout
+
+```
+index.html                              Page markup and styling
+kinematics.js                           Client-side forward/inverse kinematics solver
+arm-model.js                            The IRB 120 model (links, housings, sensor, studio lighting) shared by the viewer and the hero
+scene.js / app.js                       3D viewer and UI wiring; IK targets shown as a flange part to inspect
+hero.js                                 Showpiece hero: the same arm, pointer-tracking IK
+og/                                     Link-preview card source and its Playwright render script
+assets/readme/                          README banner and its scene (same arm model and solver, rendered by Playwright)
+tests/iqcr.spec.js                      Playwright tests
+tests/fk-check.js                       Node check of the DH table against the toolbox CSVs
+conference_paper/
+  IQCR.pdf                              Paper as submitted
+  IQCR_camera_ready_6page.pdf           Final paper (ICACR 2026)
+  matlab_source/iqcr_kinematics.m       Original hand-coded MATLAB solver (as published, shifted twist list)
+  matlab_source/iqcr_kinematics_irb120.m  Same solver on the corrected IRB 120 DH table
+  matlab_source/rst_verification.m      Independent cross-check via Robotics System Toolbox
+```
 
 ## Related work
 

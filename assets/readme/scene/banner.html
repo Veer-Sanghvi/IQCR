@@ -1,0 +1,286 @@
+<!doctype html>
+<!-- Source scene for assets/readme/banner.png (1280x400). Render with:
+     node assets/readme/scene/render.js
+     The same IRB 120 model (arm-model.js) and the same solver (kinematics.js)
+     as the live page: the arm is posed by ikSolve on a flange target held at
+     the 120 mm standoff, and every number on the sheet comes from the DH table
+     or that solve. Drawn as an engineering sheet: zone border, dimension
+     lines, a title block. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IQCR readme banner</title>
+<style>
+@font-face{font-family:"Inter"; font-weight:100 900; src:url("../../../fonts/inter-latin.woff2") format("woff2");}
+@font-face{font-family:"JetBrains Mono"; font-weight:100 800; src:url("../../../fonts/jetbrains-mono-latin.woff2") format("woff2");}
+:root{--ink:#F4F4F2; --dim:#9A9A9E; --line:rgba(255,255,255,0.22); --faint:rgba(255,255,255,0.09); --lime:#C6F432; --mono:"JetBrains Mono",monospace;}
+html,body{margin:0; background:#0B0B0C;}
+body{width:1280px; height:400px; overflow:hidden; position:relative; color:var(--ink); font-family:"Inter",system-ui,sans-serif; -webkit-font-smoothing:antialiased;}
+#host{position:absolute; inset:0;
+  background:
+    radial-gradient(42% 90% at 70% 60%, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 100%),
+    radial-gradient(30% 40% at 82% 100%, rgba(198,244,50,0.07) 0%, rgba(198,244,50,0) 100%),
+    #0B0B0C;}
+canvas{position:absolute; inset:0; width:100%; height:100%;}
+svg.ovl{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; font-family:var(--mono);}
+/* sheet border and zones */
+.sheet rect{fill:none; stroke:var(--line); stroke-width:1;}
+.sheet line{stroke:var(--line); stroke-width:1;}
+.sheet text{fill:var(--dim); font-size:9px; letter-spacing:0.08em;}
+/* dimensions and leaders */
+.dims line, .dims path{stroke:var(--ink); stroke-width:0.9; fill:none;}
+.dims .ext{stroke:rgba(255,255,255,0.45);}
+.dims .arrow{fill:var(--ink); stroke:none;}
+.dims text{fill:var(--ink); font-size:11.5px; font-variant-numeric:tabular-nums; letter-spacing:0.02em;}
+.dims text.lime, .dims .lime line, .dims .lime path{stroke:var(--lime);}
+.dims text.lime{fill:var(--lime); stroke:none; font-weight:700;}
+.dims .lime .arrow{fill:var(--lime);}
+.dims text.small{fill:var(--dim); font-size:9.5px;}
+.dims text.box{font-size:10.5px;}
+.dims .boxbg{fill:rgba(11,11,12,0.78); stroke:var(--line); stroke-width:1;}
+.dims circle.node{fill:#0B0B0C; stroke:var(--ink); stroke-width:1;}
+.dims circle.tcp{fill:var(--lime); stroke:none;}
+/* copy */
+.copy{position:absolute; left:62px; top:66px; width:470px;}
+.kicker{font-family:var(--mono); font-size:11.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--lime); font-weight:700; margin:0 0 20px; display:flex; align-items:center; gap:12px;}
+.kicker::before{content:""; width:26px; height:2px; background:var(--lime);}
+h1{font-size:46px; line-height:1.0; letter-spacing:-0.025em; font-weight:700; margin:0 0 16px;}
+h1 small{display:block; font-size:16px; letter-spacing:0.01em; font-weight:500; color:var(--dim); margin-top:14px; line-height:1.35;}
+.spec{position:absolute; left:62px; top:262px; display:grid; grid-template-columns:auto auto; column-gap:22px; row-gap:5px; font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:0.02em;}
+.spec b{color:var(--ink); font-weight:500; font-variant-numeric:tabular-nums;}
+/* title block */
+.tb{position:absolute; right:30px; bottom:30px; display:grid; grid-template-columns:200px 100px 100px; border:1px solid var(--line); background:rgba(11,11,12,0.82); font-family:var(--mono);}
+.tb div{padding:5px 9px 6px; border-left:1px solid var(--line); border-top:1px solid var(--line); min-height:32px;}
+.tb div:nth-child(-n+3){border-top:none;}
+.tb div:nth-child(3n+1){border-left:none;}
+.tb .wide{grid-column:1 / span 2;}
+.tb label{display:block; font-size:8px; letter-spacing:0.14em; text-transform:uppercase; color:var(--dim); margin-bottom:3px;}
+.tb span{display:block; font-size:11px; color:var(--ink); white-space:nowrap; font-variant-numeric:tabular-nums;}
+.tb span.lime{color:var(--lime); font-weight:700;}
+</style>
+</head>
+<body>
+<div id="host"><canvas></canvas></div>
+<svg class="ovl sheet" id="sheet"></svg>
+<svg class="ovl dims" id="dims"></svg>
+<div class="copy">
+  <p class="kicker">IQCR &middot; Inverse kinematics reach check</p>
+  <h1>Inspection &amp; Quality Control Robots<small>ABB IRB 120 six-axis arm and its damped-least-squares IK solver, running live in the browser.</small></h1>
+</div>
+<div class="spec" id="spec"></div>
+<div class="tb" id="tb">
+  <div class="wide"><label>Title</label><span>IQCR: Inspection and Quality Control Robots</span></div>
+  <div><label>Drawn by</label><span>V. Sanghvi</span></div>
+  <div><label>Robot</label><span>ABB IRB 120</span></div>
+  <div><label>Units</label><span>mm / deg</span></div>
+  <div><label>Residual</label><span class="lime" id="tb-res">-</span></div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "../../../vendor/three/build/three.module.min.js", "three/addons/": "../../../vendor/three/examples/jsm/" } }
+</script>
+<script src="../../../kinematics.js"></script>
+<script type="module">
+import * as THREE from "three";
+import { LIME, buildArm, makeStudio, makeEnvironment } from "../../../arm-model.js";
+const K = window.IQCR_KIN;
+const W = 1280, H = 400;
+const STANDOFF = 120; // same as scene.js: the part sits this far in front of the target TCP along the tool axis
+
+// ---- target pose: a flange hub ahead of the base, tool axis pitched down onto it ----
+const tcp = [505, -40, 330];
+const pitch = 32 * Math.PI / 180;                                         // tool axis below horizontal
+const zAx = [Math.cos(pitch), 0, -Math.sin(pitch)];                       // tool axis (+z of the TCP frame)
+const yAx = [0, 1, 0];
+const xAx = [yAx[1] * zAx[2] - yAx[2] * zAx[1], yAx[2] * zAx[0] - yAx[0] * zAx[2], yAx[0] * zAx[1] - yAx[1] * zAx[0]];
+const T = [
+  [xAx[0], yAx[0], zAx[0], tcp[0]],
+  [xAx[1], yAx[1], zAx[1], tcp[1]],
+  [xAx[2], yAx[2], zAx[2], tcp[2]],
+  [0, 0, 0, 1],
+];
+const sol = K.ikSolve(K.HOME_Q, T, { rng: K.mulberry32(7) });
+const q = sol.q;
+const { frames } = K.fkChain(q);
+console.log(`ik converged=${sol.converged} iter=${sol.iterations} posErr=${sol.posErrFinal.toExponential(2)} q=[${q.map((v) => (v * 180 / Math.PI).toFixed(1)).join(", ")}]`);
+
+// ---- scene ----
+const host = document.getElementById("host");
+const renderer = new THREE.WebGLRenderer({ canvas: host.querySelector("canvas"), antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(2);
+renderer.setSize(W, H, false);
+renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+const scene = new THREE.Scene();
+makeStudio(renderer, scene);
+makeEnvironment(renderer, scene);
+const arm = buildArm(K);
+scene.add(arm.group);
+arm.update(frames);
+arm.glow.material.opacity = 0.5;
+arm.cone.material.opacity = 0.06;
+const rim2 = new THREE.DirectionalLight(0xC6F432, 0.45);
+rim2.position.set(-400, 900, 200);
+scene.add(rim2);
+
+// the part, same machined flange hub as scene.js, held STANDOFF mm in front of the TCP
+const target = new THREE.Group();
+const m4 = new THREE.Matrix4().set(...T.flat());
+target.position.setFromMatrixPosition(m4);
+target.quaternion.setFromRotationMatrix(m4);
+scene.add(target);
+const alu = new THREE.MeshStandardMaterial({ color: 0xb9bcc1, roughness: 0.32, metalness: 0.92, envMapIntensity: 1.0 });
+const graphite = new THREE.MeshStandardMaterial({ color: 0x242427, roughness: 0.4, metalness: 0.8 });
+const part = new THREE.Group();
+part.position.z = STANDOFF;
+target.add(part);
+const hub = new THREE.Mesh(new THREE.LatheGeometry([
+  new THREE.Vector2(12, -12), new THREE.Vector2(52, -12), new THREE.Vector2(55, -9), new THREE.Vector2(55, -3),
+  new THREE.Vector2(52, 0), new THREE.Vector2(30, 0), new THREE.Vector2(30, 24), new THREE.Vector2(27, 27),
+  new THREE.Vector2(12, 27), new THREE.Vector2(12, -12),
+], 48), alu);
+hub.rotation.x = -Math.PI / 2;
+hub.castShadow = hub.receiveShadow = true;
+part.add(hub);
+const boltGeo = new THREE.CylinderGeometry(4.5, 4.5, 5, 6);
+for (let k = 0; k < 6; k++) {
+  const a = (k / 6) * Math.PI * 2;
+  const b = new THREE.Mesh(boltGeo, graphite);
+  b.rotation.x = Math.PI / 2;
+  b.position.set(42 * Math.cos(a), 42 * Math.sin(a), -2.5);
+  b.castShadow = true;
+  part.add(b);
+}
+const rim = new THREE.Mesh(new THREE.TorusGeometry(55.6, 1.6, 8, 64), new THREE.MeshBasicMaterial({ color: LIME, transparent: true, opacity: 0.35 }));
+rim.position.z = 6;
+part.add(rim);
+// drop line from the part to the floor with a floor ring, as in the lab viewer
+target.updateMatrixWorld(true);
+const partWorld = new THREE.Vector3();
+part.getWorldPosition(partWorld);
+const limeLine = new THREE.LineBasicMaterial({ color: LIME, transparent: true, opacity: 0.55 });
+scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([partWorld.clone(), new THREE.Vector3(partWorld.x, partWorld.y, 1.6)]), limeLine));
+const floorRing = new THREE.Mesh(new THREE.RingGeometry(16, 19, 40), new THREE.MeshBasicMaterial({ color: LIME, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+floorRing.position.set(partWorld.x, partWorld.y, 1.6);
+scene.add(floorRing);
+
+// ---- camera: three-quarter elevation, arm in the right 60 % of the sheet ----
+const camera = new THREE.PerspectiveCamera(24, W / H, 10, 8000);
+camera.up.set(0, 0, 1);
+camera.position.set(1150, -2250, 560);
+camera.lookAt(-326, -239, 175);
+camera.updateMatrixWorld();
+
+// ---- overlay helpers ----
+const proj = (v) => { const p = (v.isVector3 ? v : new THREE.Vector3(...v)).clone().project(camera); return [(p.x * 0.5 + 0.5) * W, (-p.y * 0.5 + 0.5) * H]; };
+const svgNS = "http://www.w3.org/2000/svg";
+const el = (parent, tag, attrs, text) => { const n = document.createElementNS(svgNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (text != null) n.textContent = text; parent.appendChild(n); return n; };
+const dims = document.getElementById("dims");
+const sheet = document.getElementById("sheet");
+
+// sheet border with zone ticks, like a drawing frame
+el(sheet, "rect", { x: 14.5, y: 14.5, width: W - 29, height: H - 29 });
+el(sheet, "rect", { x: 22.5, y: 22.5, width: W - 45, height: H - 45 });
+const cols = 8, rows = 3;
+for (let c = 1; c < cols; c++) {
+  const x = 14.5 + (W - 29) * c / cols;
+  el(sheet, "line", { x1: x, y1: 14.5, x2: x, y2: 22.5 }); el(sheet, "line", { x1: x, y1: H - 22.5, x2: x, y2: H - 14.5 });
+}
+for (let c = 0; c < cols; c++) {
+  const x = 14.5 + (W - 29) * (c + 0.5) / cols;
+  el(sheet, "text", { x, y: 21, "text-anchor": "middle" }, String(c + 1));
+  el(sheet, "text", { x, y: H - 16, "text-anchor": "middle" }, String(c + 1));
+}
+for (let r = 1; r < rows; r++) {
+  const y = 14.5 + (H - 29) * r / rows;
+  el(sheet, "line", { x1: 14.5, y1: y, x2: 22.5, y2: y }); el(sheet, "line", { x1: W - 22.5, y1: y, x2: W - 14.5, y2: y });
+}
+["A", "B", "C"].forEach((z, r) => {
+  const y = 14.5 + (H - 29) * (r + 0.5) / rows + 3;
+  el(sheet, "text", { x: 18.5, y, "text-anchor": "middle" }, z);
+  el(sheet, "text", { x: W - 18.5, y, "text-anchor": "middle" }, z);
+});
+
+// a drawing-style linear dimension between two 3D points: extension lines,
+// a dimension line offset to one side, filled arrowheads, the value above it
+function dimension(p3a, p3b, label, offset, opts = {}) {
+  const a = proj(p3a), b = proj(p3b);
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len;
+  let nx = -uy, ny = ux;
+  if (offset < 0) { nx = -nx; ny = -ny; offset = -offset; }
+  const g = el(dims, "g", { class: opts.lime ? "lime" : "" });
+  const A = [a[0] + nx * offset, a[1] + ny * offset], B = [b[0] + nx * offset, b[1] + ny * offset];
+  el(g, "line", { class: "ext", x1: a[0] + nx * 4, y1: a[1] + ny * 4, x2: A[0] + nx * 8, y2: A[1] + ny * 8 });
+  el(g, "line", { class: "ext", x1: b[0] + nx * 4, y1: b[1] + ny * 4, x2: B[0] + nx * 8, y2: B[1] + ny * 8 });
+  el(g, "line", { x1: A[0], y1: A[1], x2: B[0], y2: B[1] });
+  const head = (P, dirx, diry) => el(g, "path", { class: "arrow", d: `M${P[0]},${P[1]} L${P[0] - dirx * 9 + (-diry) * 2.6},${P[1] - diry * 9 + dirx * 2.6} L${P[0] - dirx * 9 - (-diry) * 2.6},${P[1] - diry * 9 - dirx * 2.6} Z` });
+  head(A, -ux, -uy); head(B, ux, uy);
+  // the value reads left to right, centred a little off the dimension line on the open side
+  let ang = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (ang > 90 || ang < -90) ang += 180;
+  const tx = (A[0] + B[0]) / 2 + nx * 9, ty = (A[1] + B[1]) / 2 + ny * 9;
+  el(g, "text", { x: tx, y: ty, "text-anchor": "middle", "dominant-baseline": "middle", transform: `rotate(${ang} ${tx} ${ty})`, class: opts.lime ? "lime" : "" }, label);
+  return g;
+}
+
+// leader with a dot at the anchor and a boxed note at the end
+function note(p3, end, lines, opts = {}) {
+  const a = proj(p3);
+  const g = el(dims, "g", { class: opts.lime ? "lime" : "" });
+  const elbow = [end[0] + (end[0] > a[0] ? -14 : 14), end[1]];
+  el(g, "path", { d: `M${a[0]},${a[1]} L${elbow[0]},${elbow[1]} L${end[0]},${end[1]}` });
+  el(g, "circle", { class: opts.lime ? "tcp" : "node", cx: a[0], cy: a[1], r: opts.lime ? 3.2 : 3 });
+  const anchorRight = end[0] > a[0];
+  const padX = 8, lineH = 13, w = opts.width || 150;
+  const bx = anchorRight ? end[0] : end[0] - w, by = end[1] - (lines.length * lineH) / 2 - 5;
+  el(g, "rect", { class: "boxbg", x: bx, y: by, width: w, height: lines.length * lineH + 10, rx: 2 });
+  lines.forEach((ln, i) => el(g, "text", { class: "box" + (ln.lime ? " lime" : "") + (ln.small ? " small" : ""), x: bx + padX, y: by + 9 + lineH * (i + 1) - 4 }, ln.t || ln));
+  return g;
+}
+
+const P = frames.map((F) => new THREE.Vector3(F[0][3], F[1][3], F[2][3]));
+const base = new THREE.Vector3(0, 0, 0);
+const toolTip = P[6].clone().add(new THREE.Vector3(...zAx).multiplyScalar(0)); // TCP
+const partFace = P[6].clone().add(new THREE.Vector3(...zAx).multiplyScalar(STANDOFF));
+
+// link dimensions from the DH table (kinematics.js)
+dimension(base, P[1], `d1 = ${K.DH_D[0]}`, -44);
+dimension(P[1], P[2], `a2 = ${K.DH_A[1]}`, -40);
+dimension(P[3], P[4], `d4 = ${K.DH_D[3]}`, 36);
+dimension(P[5], P[6], `d6 = ${K.DH_D[5]}`, 28);
+// the standoff from the TCP to the part face, the number the whole sheet is about
+dimension(toolTip, partFace, `${STANDOFF} standoff`, 74, { lime: true });
+
+// notes
+const degs = q.map((v) => v * 180 / Math.PI);
+const fmt = (v, d = 1) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+const tcpNow = K.posOf(frames[6]);
+note(P[6], [1030, 70], [
+  { t: "TCP  TARGET", lime: true },
+  `x ${tcp[0]}  y ${tcp[1]}  z ${tcp[2]} mm`,
+  `pitch ${fmt(-32, 0)}\u00B0  \u00B7  ${sol.iterations} iterations`,
+  { t: `hub \u00D8110 at ${STANDOFF} mm standoff`, small: true },
+], { lime: true, width: 215 });
+note(new THREE.Vector3(0, 0, 40), [560, 352], [
+  "JOINT ANGLES  q1..q6",
+  `${degs.map((d) => fmt(d).padStart(6, " ")).slice(0, 3).join(" ")}`,
+  `${degs.map((d) => fmt(d).padStart(6, " ")).slice(3).join(" ")}`,
+], { width: 196 });
+
+// spec column under the headline
+document.getElementById("spec").innerHTML = [
+  ["DH links", `d1 ${K.DH_D[0]} \u00B7 a2 ${K.DH_A[1]} \u00B7 a3 ${K.DH_A[2]} \u00B7 d4 ${K.DH_D[3]} \u00B7 d6 ${K.DH_D[5]} mm`],
+  ["Joint limits", [0, 1, 2].map((i) => `J${i + 1} ${Math.round(K.QMIN[i] * 180 / Math.PI)}/${Math.round(K.QMAX[i] * 180 / Math.PI)}\u00B0`).join(" \u00B7 ")],
+  ["Solver", `damped least squares \u00B7 lambda 1e-3 \u00B7 ${sol.iterations} iterations`],
+].map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join("");
+document.getElementById("tb-res").textContent = `${sol.posErrFinal < 1e-3 ? "< 0.001" : sol.posErrFinal.toFixed(3)} mm`;
+
+await document.fonts.ready;
+renderer.render(scene, camera);
+document.body.dataset.ready = "1";
+</script>
+</body>
+</html>
