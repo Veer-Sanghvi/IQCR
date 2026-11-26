@@ -63,9 +63,17 @@ export function buildArm(K) {
     add(parent, new THREE.SphereGeometry(r1, 32, 20), mat, { pos: to.clone() });
     return { dir, q };
   };
-  // a joint housing: a graphite drum on the local z axis with rubber end caps
+  // a joint housing: a cast graphite drum on the local z axis, chamfered rims,
+  // rubber end caps. Callers size it so every link root it covers (the rounded
+  // link ends sit on the joint axis) is fully inside the drum, so no sliver of
+  // paint ever pokes out of a face and nothing z-fights with the caps.
   const housing = (parent, r, h, zOff = 0) => {
-    add(parent, new THREE.CylinderGeometry(r, r, h, 40), graphite, { pos: new THREE.Vector3(0, 0, zOff), rotX: Math.PI / 2 });
+    const c = Math.min(8, r * 0.12);
+    const drum = new THREE.LatheGeometry([
+      new THREE.Vector2(0, -h / 2), new THREE.Vector2(r - c, -h / 2), new THREE.Vector2(r, -h / 2 + c),
+      new THREE.Vector2(r, h / 2 - c), new THREE.Vector2(r - c, h / 2), new THREE.Vector2(0, h / 2),
+    ], 48);
+    add(parent, drum, graphite, { pos: new THREE.Vector3(0, 0, zOff), rotX: Math.PI / 2 });
     add(parent, new THREE.CylinderGeometry(r * 0.62, r * 0.62, h + 6, 32), rubber, { pos: new THREE.Vector3(0, 0, zOff), rotX: Math.PI / 2 });
   };
 
@@ -90,7 +98,9 @@ export function buildArm(K) {
     const O = new THREE.Vector3();
     if (i === 0) {
       // turret: from the foot up to the shoulder, slightly tapered, then the
-      // shoulder housing hung off one side of the turret on the J2 axis
+      // shoulder housing on the J2 axis, a touch longer on one side. Its
+      // 170 mm length encloses the turret's top sphere (r 62) and the upper
+      // arm's root sphere (r 50), which both sit on that axis.
       const top = P.clone().addScaledVector(P.clone().negate().normalize(), K.DH_D[0]);
       const dir = top.clone().sub(P).normalize();
       const q = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, dir);
@@ -98,11 +108,12 @@ export function buildArm(K) {
       const len = from.distanceTo(top);
       add(g, new THREE.CylinderGeometry(62, 76, len, 40), paint, { pos: from.clone().addScaledVector(dir, len / 2), quat: q });
       add(g, new THREE.SphereGeometry(62, 32, 20), paint, { pos: top });
-      housing(g, 80, 150, 34);
+      housing(g, 80, 170, 12);
     } else if (i === 1) {
-      // upper arm: tapers from the shoulder to the elbow, seam at the shoulder
+      // upper arm: tapers from the shoulder to the elbow, seam just outside the
+      // shoulder drum (the arm leaves the drum's side 62 to 80 mm from the axis)
       const { dir, q } = linkBody(g, P, O, 50, 40, paint);
-      add(g, new THREE.TorusGeometry(51, 2.4, 8, 40), rubber, { pos: P.clone().addScaledVector(dir, 36), quat: q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI / 2)) });
+      add(g, new THREE.TorusGeometry(47.5, 2.4, 8, 40), rubber, { pos: P.clone().addScaledVector(dir, 92), quat: q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI / 2)) });
       housing(g, 56, 118);
     } else if (i === 2) {
       // elbow offset link (70 mm); the J4 drum on the next link covers its far end
@@ -331,33 +342,53 @@ export function createHero(host) {
   controls.addEventListener("start", () => { dragging = true; });
   controls.addEventListener("end", () => { dragging = false; });
 
-  // ---- annotation overlay: J1 to J6 leader lines and live angles ----
+  // ---- annotation overlay: J1 to J6 callouts and live angles ----
+  // Each tag sits in a column on its joint's side of the arm (the three
+  // leftmost joints on screen go left, the other three right) at its joint's
+  // own height, pushed apart just enough not to overlap and damped so it
+  // glides. Leaders are therefore short and near-horizontal, and two leaders
+  // on one side can only cross if a tag is shoved past its neighbour's joint,
+  // which the spread never does. On narrow screens the CSS lays the tags out
+  // as a static row and hides the leaders, and the transforms set here are
+  // overridden.
   const tags = Array.from(host.querySelectorAll("[data-joint]"));
   const lines = Array.from(host.querySelectorAll("[data-leader]"));
   const dots = Array.from(host.querySelectorAll("[data-leader-dot]"));
   const tcp = host.querySelector("[data-tcp]");
+  const copy = host.querySelector(".showpiece-copy");
+  const tagPos = tags.map(() => ({ x: NaN, y: NaN }));
+  const fmtDeg = (rad) => { const d = (rad * 180) / Math.PI; return ((d >= 0 ? "+" : "−") + Math.abs(d).toFixed(1)).padStart(6, " ") + "°"; };
   function updateOverlay(frames) {
-    const r = host.getBoundingClientRect();
+    const W = host.clientWidth, H = host.clientHeight;
     const pts = frames.map((T) => new THREE.Vector3(T[0][3], T[1][3], T[2][3]));
     const anchors = jointAnchors(frames);
     const v = new THREE.Vector3();
-    const screen = anchors.map((a) => { v.copy(a).project(camera); return [(v.x * 0.5 + 0.5) * r.width, (-v.y * 0.5 + 0.5) * r.height]; });
-    // the tag column follows the joints' order on screen, top to bottom, so the leaders never cross
-    const rank = screen.map((p, j) => [p[1], j]).sort((a, b) => a[0] - b[0]).map(([, j]) => j);
-    rank.forEach((j, k) => { tags[j].style.order = k; });
-    tags.forEach((tag, j) => {
-      const [x, y] = screen[j];
-      const deg = (q[j] * 180) / Math.PI;
-      tag.lastElementChild.textContent = `${deg >= 0 ? "+" : "−"}${Math.abs(deg).toFixed(1).padStart(5, " ")}°`;
-      const tr = tag.getBoundingClientRect();
-      const line = lines[j], dot = dots[j];
-      if (line) line.setAttribute("x1", tr.right - r.left + 4), line.setAttribute("y1", tr.top - r.top + tr.height / 2), line.setAttribute("x2", x), line.setAttribute("y2", y);
-      if (dot) dot.setAttribute("cx", x), dot.setAttribute("cy", y);
-    });
+    const screen = anchors.map((a) => { v.copy(a).project(camera); return [(v.x * 0.5 + 0.5) * W, (-v.y * 0.5 + 0.5) * H]; });
+    tags.forEach((tag, j) => { tag.lastElementChild.textContent = fmtDeg(q[j]); });
     if (tcp) {
       const p = pts[6];
-      tcp.textContent = `TCP ${p.x.toFixed(0).padStart(5, " ")} ${p.y.toFixed(0).padStart(5, " ")} ${p.z.toFixed(0).padStart(5, " ")} mm`;
+      tcp.textContent = `TCP ${p.x.toFixed(0).padStart(5, " ")} ${p.y.toFixed(0).padStart(5, " ")} ${p.z.toFixed(0).padStart(5, " ")} mm`;
     }
+    const pad = copy ? copy.offsetLeft : 24;
+    const tagW = tags[0].offsetWidth, tagH = tags[0].offsetHeight, pitch = tagH + 6;
+    const top = pad * 0.75, bottom = (copy ? copy.offsetTop : H) - 12 - tagH;
+    const byX = screen.map((p, j) => [p[0], j]).sort((a, b) => a[0] - b[0]).map(([, j]) => j);
+    [byX.slice(0, 3), byX.slice(3)].forEach((side, s) => {
+      const left = s === 0;
+      side.sort((a, b) => screen[a][1] - screen[b][1]);
+      const ys = side.map((j) => Math.min(bottom, Math.max(top, screen[j][1] - tagH / 2)));
+      for (let k = 1; k < ys.length; k++) ys[k] = Math.max(ys[k], ys[k - 1] + pitch);
+      ys[ys.length - 1] = Math.min(ys[ys.length - 1], bottom);
+      for (let k = ys.length - 2; k >= 0; k--) ys[k] = Math.min(ys[k], ys[k + 1] - pitch);
+      side.forEach((j, k) => {
+        const p = tagPos[j], tx = left ? pad : W - pad - tagW, ty = ys[k];
+        if (Number.isNaN(p.x)) { p.x = tx; p.y = ty; } else { p.x += (tx - p.x) * 0.22; p.y += (ty - p.y) * 0.22; }
+        tags[j].style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`;
+        const [x, y] = screen[j], line = lines[j], dot = dots[j];
+        if (line) line.setAttribute("x1", left ? p.x + tagW + 4 : p.x - 4), line.setAttribute("y1", p.y + tagH / 2), line.setAttribute("x2", x), line.setAttribute("y2", y);
+        if (dot) dot.setAttribute("cx", x), dot.setAttribute("cy", y);
+      });
+    });
   }
 
   // ---- loop state (declared before resize() uses it) ----

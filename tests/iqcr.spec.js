@@ -139,3 +139,31 @@ test.describe("showpiece hero", () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe("hero callouts", () => {
+  // segment intersection, proper crossings only (shared endpoints do not count)
+  const cross = (a, b) => {
+    const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const [p1, p2] = a, [p3, p4] = b;
+    return o(p1, p2, p3) * o(p1, p2, p4) < 0 && o(p3, p4, p1) * o(p3, p4, p2) < 0;
+  };
+  test("leader lines never cross each other while the arm moves", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await expect(page.locator("#hero-host")).toHaveAttribute("data-hero", "ready", { timeout: 15000 });
+    const host = page.locator("#hero-host");
+    const box = await host.boundingBox();
+    // a few pointer targets, then the idle sweep: a spread of poses
+    const spots = [[0.75, 0.3], [0.9, 0.7], [0.4, 0.2], [0.55, 0.85], [0.3, 0.5]];
+    for (let s = 0; s < 9; s++) {
+      if (s < spots.length) await page.mouse.move(box.x + box.width * spots[s][0], box.y + box.height * spots[s][1]);
+      await page.waitForTimeout(700);
+      const segs = await page.$$eval("#hero-host [data-leader]", (els) => els.map((l) => ["x1", "y1", "x2", "y2"].map((k) => Number(l.getAttribute(k)))));
+      expect(segs).toHaveLength(6);
+      for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) {
+        expect(cross([[segs[i][0], segs[i][1]], [segs[i][2], segs[i][3]]], [[segs[j][0], segs[j][1]], [segs[j][2], segs[j][3]]]), `sample ${s}: J${i + 1} x J${j + 1}`).toBe(false);
+      }
+    }
+    await expect(page.locator("#hero-host [data-joint] b").first()).toHaveText(/^ *[+−]\d+\.\d°$/);
+  });
+});
