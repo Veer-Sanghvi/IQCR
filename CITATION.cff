@@ -14,6 +14,10 @@ preferred-citation:
   authors:
     - family-names: Sanghvi
       given-names: Veer
+    - family-names: Fong
+      given-names: Tyler
+    - family-names: Shah
+      given-names: Syed Irtiza Ali
   collection-title: "IEEE ICACR 2026"
   conference:
     name: "IEEE ICACR 2026"

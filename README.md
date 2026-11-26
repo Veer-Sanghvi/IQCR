@@ -18,7 +18,7 @@ Every run is compared against the paper's original MATLAB results and an indepen
 
 ## Paper
 
-Co-authored with Tyler Fong and Syed Irtiza Ali Shah at Wentworth Institute of Technology. Accepted to ICACR 2026 (IEEE, EI Compendex/Scopus indexed); presenting October 2026 in Nanjing, China.
+Co-authored with Tyler Fong and Syed Irtiza Ali Shah at Wentworth Institute of Technology. Presented at IEEE ICACR 2026 (Nanjing, China, October 2026).
 
 Paper as submitted: [`conference_paper/IQCR.pdf`](conference_paper/IQCR.pdf)
 Final paper (ICACR 2026): [`conference_paper/IQCR_camera_ready_6page.pdf`](conference_paper/IQCR_camera_ready_6page.pdf)
