@@ -13,6 +13,30 @@ const X_AXIS = new THREE.Vector3(1, 0, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 
+// Low-capability mode: software GL (SwiftShader, llvmpipe, Mesa software
+// rasterizers, which CI runners and GPU-blocklisted machines fall back to) or
+// very few cores. Both scenes then drop shadows, the reflection environment
+// and device-pixel scaling; the model and lighting rig stay the same.
+export function lowCapability(renderer) {
+  try {
+    const gl = renderer.getContext();
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    const name = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "";
+    if (/swiftshader|llvmpipe|softpipe|software/i.test(name)) return true;
+  } catch { /* no debug info: judge by cores alone */ }
+  return (navigator.hardwareConcurrency || 8) < 4;
+}
+
+// Renderer settings shared by both scenes; `low` turns the expensive parts off.
+export function configureRenderer(renderer, low) {
+  renderer.debug.checkShaderErrors = false;
+  renderer.setPixelRatio(low ? 1 : Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = !low;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+}
+
 export function radialTexture(inner, outer, size = 256, hold = 0) {
   const c = document.createElement("canvas");
   c.width = c.height = size;
@@ -215,6 +239,7 @@ export function jointAnchors(frames) {
 // procedural room for reflections, a fading dark floor with a contact shadow
 // and a lime calibration grid.
 export function makeEnvironment(renderer, scene) {
+  if (!renderer.shadowMap.enabled) return; // low-capability mode: no PMREM
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
   pmrem.dispose();
@@ -224,7 +249,7 @@ export function makeStudio(renderer, scene) {
 
   const key = new THREE.DirectionalLight(0xfff0dc, 2.6);
   key.position.set(620, -560, 980);
-  key.castShadow = true;
+  key.castShadow = renderer.shadowMap.enabled;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.radius = 4;
   key.shadow.bias = -0.0005;

@@ -526,13 +526,14 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
 <script type="module">
 // three.js and everything that imports it (the lab viewer in app.js, the hero
 // in hero.js) load only after the page has painted and the load event fired,
-// so the 170 KB library never competes with first paint. The hero waits for
-// an idle slot on top of that.
+// so the 170 KB library never competes with first paint. The hero starts only
+// once the lab viewer (section 01) is wired up and interactive, and then in
+// an idle slot, so the two scenes never compile shaders at the same time.
 const start = () => setTimeout(() => {
-  import("./app.js");
   const host = document.getElementById("hero-host");
   const boot = () => import("./hero.js").then((m) => m.createHero(host)).catch(() => { host.dataset.hero = "failed"; });
-  if ("requestIdleCallback" in window) requestIdleCallback(boot, { timeout: 1500 }); else boot();
+  const bootIdle = () => { if ("requestIdleCallback" in window) requestIdleCallback(boot, { timeout: 1500 }); else boot(); };
+  import("./app.js").then(bootIdle, bootIdle);
 }, 0);
 if (document.readyState === "complete") start(); else addEventListener("load", start, { once: true });
 </script>

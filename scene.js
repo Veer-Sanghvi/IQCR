@@ -6,7 +6,7 @@
 // target pose. Same materials, lights and floor as the hero.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { LIME, buildArm, ghostArm, makeEnvironment, makeStudio } from "./arm-model.js";
+import { LIME, buildArm, configureRenderer, ghostArm, lowCapability, makeEnvironment, makeStudio } from "./arm-model.js";
 
 // the part sits this far in front of the target TCP, along the tool axis, so
 // the sensor cone (22 to 212 mm from the flange) covers it at convergence
@@ -33,12 +33,9 @@ export function createRobotScene(hostEl) {
   });
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-  renderer.debug.checkShaderErrors = false;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  const low = lowCapability(renderer);
+  configureRenderer(renderer, low);
+  hostEl.dataset.quality = low ? "low" : "full";
   hostEl.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -144,12 +141,18 @@ export function createRobotScene(hostEl) {
   envelopePoints.visible = false;
   scene.add(envelopePoints);
 
+  // render on demand: anything that changes what is on screen marks the scene
+  // dirty and wakes the loop; the loop stops again once nothing is animating
+  let dirty = true;
+  let visible = false, hidden = document.hidden, running = false, last = performance.now(), envQueued = false, active = false;
+  const invalidate = () => { dirty = true; schedule(); };
   function setEnvelopePoints(pts) {
+    invalidate();
     const arr = new Float32Array(pts.length * 3);
     pts.forEach((p, i) => { arr[i * 3] = p[0]; arr[i * 3 + 1] = p[1] || 0; arr[i * 3 + 2] = p[2]; });
     envelopeGeo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
   }
-  function setEnvelopeVisible(v) { envelopePoints.visible = v; }
+  function setEnvelopeVisible(v) { envelopePoints.visible = v; invalidate(); }
 
   const tmpM = new THREE.Matrix4();
   function mat4ToThree(T) {
@@ -163,6 +166,7 @@ export function createRobotScene(hostEl) {
   }
 
   function updatePose(frames) {
+    invalidate();
     // frames: array of 7 row-major 4x4 matrices from fkChain(q)
     arm.update(frames);
     const T = frames[6];
@@ -171,6 +175,7 @@ export function createRobotScene(hostEl) {
 
   // T: target tool pose (null hides everything); q: the joint vector behind it, for the ghost
   function setTarget(T, q) {
+    invalidate();
     target.visible = !!T;
     hostEl.dataset.target = T ? "set" : "none";
     label.hidden = !T;
@@ -196,10 +201,10 @@ export function createRobotScene(hostEl) {
     ghost.group.visible = ghostWanted && ghostPosed;
     flash = 0;
   }
-  function setGhostVisible(v) { ghostWanted = !!v; ghost.group.visible = ghostWanted && ghostPosed && target.visible; }
+  function setGhostVisible(v) { ghostWanted = !!v; ghost.group.visible = ghostWanted && ghostPosed && target.visible; invalidate(); }
   // lime rim lights up on convergence and dims back over about a second; a
   // reduced-motion visitor gets no pulse at all
-  function flashTarget() { ghost.group.visible = false; if (!reduceMotion.matches) flash = 1; }
+  function flashTarget() { ghost.group.visible = false; if (!reduceMotion.matches) flash = 1; invalidate(); }
 
   // the label sits in the margin on the part's side of the canvas (away from
   // the arm, whose base projects near the centre) with a leader to the part
@@ -251,41 +256,59 @@ export function createRobotScene(hostEl) {
     const narrow = w < 600;
     ghost.material.opacity = narrow ? 0.06 : 0.12;
     arm.glow.material.opacity = narrow ? 0.3 : 0.55;
+    invalidate();
   }
   new ResizeObserver(resize).observe(hostEl);
   resize();
 
-  // ---- loop: runs only while the viewer is on screen in a visible tab. The
-  // first render (shader compiles, shadow maps) and the reflection environment
-  // wait for the viewer to scroll into view, so they never block the page load.
-  let visible = false, hidden = document.hidden, running = false, last = performance.now(), envQueued = false;
+  // ---- loop: renders only when something changed (a pose, the target, a
+  // slider, an orbit) or is animating (fly-in, camera easing, the rim flash,
+  // orbit damping), and only while the viewer is on screen in a visible tab.
+  // Between changes no frame is drawn at all. The first render (shader
+  // compiles, shadow maps) and the reflection environment wait for the viewer
+  // to scroll into view, so they never block the page load. The hero listens
+  // for "iqcr:viewer-active" and holds its idle sweep while this loop runs.
+  function setActive(v) {
+    if (active === v) return;
+    active = v;
+    document.dispatchEvent(new CustomEvent("iqcr:viewer-active", { detail: v }));
+  }
   function frame(now) {
     running = false;
-    if (!visible || hidden) return;
+    if (!visible || hidden) { setActive(false); return; }
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
+    let animating = false;
     if (flyStart !== null) {
       const t = Math.min(1, (now - flyStart) / FLY_MS);
       const eased = 1 - Math.pow(1 - t, 3);
       camera.position.lerpVectors(CAM_START, CAM_FINAL, eased);
-      if (t >= 1) flyStart = null;
+      if (t >= 1) flyStart = null; else animating = true;
     }
     if (flyStart === null && !userTouched) {
       posTmp.copy(camera.position).sub(controls.target);
       const dist = posTmp.length();
-      if (Math.abs(dist - desiredDist) > 0.5) camera.position.copy(controls.target).addScaledVector(posTmp.normalize(), reduceMotion.matches ? desiredDist : dist + (desiredDist - dist) * 0.08);
+      if (Math.abs(dist - desiredDist) > 0.5) {
+        camera.position.copy(controls.target).addScaledVector(posTmp.normalize(), reduceMotion.matches ? desiredDist : dist + (desiredDist - dist) * 0.08);
+        animating = true;
+      }
     }
-    if (flash > 0) flash = Math.max(0, flash - dt / 1.2);
+    if (flash > 0) { flash = Math.max(0, flash - dt / 1.2); animating = true; }
     rimMat.opacity = 0.3 + 0.7 * flash;
-    controls.update();
-    placeLabel();
-    renderer.render(scene, camera);
+    // OrbitControls.update() reports a camera move, which with damping keeps
+    // going for a few frames after the pointer is released
+    if (controls.update()) animating = true;
+    if (dirty || animating) {
+      dirty = false;
+      placeLabel();
+      renderer.render(scene, camera);
+    }
     if (!envQueued) {
       envQueued = true;
-      const addEnv = () => makeEnvironment(renderer, scene);
+      const addEnv = () => { makeEnvironment(renderer, scene); invalidate(); };
       if ("requestIdleCallback" in window) requestIdleCallback(addEnv, { timeout: 2000 }); else setTimeout(addEnv, 250);
     }
-    schedule();
+    if (animating || dirty) { setActive(true); schedule(); } else setActive(false);
   }
   function schedule() {
     if (running || !visible || hidden) return;
@@ -295,6 +318,8 @@ export function createRobotScene(hostEl) {
   }
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; schedule(); }, { threshold: 0.02 }).observe(hostEl);
   document.addEventListener("visibilitychange", () => { hidden = document.hidden; schedule(); });
+  controls.addEventListener("change", invalidate);
+  controls.addEventListener("start", invalidate);
 
   return { updatePose, setTarget, setGhostVisible, flashTarget, setEnvelopePoints, setEnvelopeVisible };
 }

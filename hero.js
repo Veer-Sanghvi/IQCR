@@ -6,7 +6,7 @@
 // re-exported here so og/og-scene.html can render the identical arm as a still.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { buildArm, jointAnchors, makeEnvironment, makeStudio } from "./arm-model.js";
+import { buildArm, configureRenderer, jointAnchors, lowCapability, makeEnvironment, makeStudio } from "./arm-model.js";
 export { buildArm, jointAnchors, makeEnvironment, makeStudio } from "./arm-model.js";
 
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
@@ -45,14 +45,12 @@ export function createHero(host) {
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
   const canvas = host.querySelector("canvas") || host.appendChild(document.createElement("canvas"));
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  // no synchronous link-status queries: shader compiles stay off the main thread
-  renderer.debug.checkShaderErrors = false;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  // shared settings (no synchronous shader-error queries, DPR, shadows, tone
+  // mapping); low-capability machines get no shadows, no PMREM and DPR 1
+  const low = lowCapability(renderer);
+  configureRenderer(renderer, low);
   renderer.setClearColor(0x000000, 0);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  host.dataset.quality = low ? "low" : "full";
 
   const scene = new THREE.Scene();
   makeStudio(renderer, scene);
@@ -168,7 +166,7 @@ export function createHero(host) {
   }
 
   // ---- loop state (declared before resize() uses it) ----
-  let visible = true, hidden = document.hidden, running = false, needsRender = true;
+  let visible = true, hidden = document.hidden, running = false, needsRender = true, viewerActive = false;
 
   // ---- sizing without layout shift: the host already has its CSS height ----
   function resize() {
@@ -189,11 +187,19 @@ export function createHero(host) {
   new ResizeObserver(resize).observe(host);
   resize();
 
-  // ---- loop: idle path when untouched, paused offscreen or in a hidden tab ----
+  // ---- loop: idle path when untouched, paused offscreen, in a hidden tab or
+  // while the lab viewer below is animating. The idle sweep is capped at 30
+  // frames a second (15 on low-capability machines); a pointer or an orbit
+  // still gets every frame. ----
   const t0 = performance.now();
+  const idleMs = low ? 1000 / 15 : 1000 / 30;
+  let lastDraw = -Infinity;
   function frame(now) {
     running = false;
-    if (!visible || hidden) return;
+    if (!visible || hidden || viewerActive) return;
+    const engaged = dragging || now - lastPointer < 2600;
+    if (!engaged && !needsRender && now - lastDraw < idleMs) { schedule(); return; }
+    lastDraw = now;
     const t = (now - t0) / 1000;
     if (!reduceMotion.matches) {
       if (now - lastPointer > 2600 && !dragging) {
@@ -220,6 +226,7 @@ export function createHero(host) {
   }
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; schedule(); }, { threshold: 0.02 }).observe(host);
   document.addEventListener("visibilitychange", () => { hidden = document.hidden; schedule(); });
+  document.addEventListener("iqcr:viewer-active", (e) => { viewerActive = !!e.detail; schedule(); });
   controls.addEventListener("change", () => { needsRender = true; schedule(); });
   reduceMotion.addEventListener("change", () => { q = K.HOME_Q.slice(); target.copy(CENTER); needsRender = true; schedule(); });
 
