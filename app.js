@@ -74,7 +74,7 @@ function updateEEReadout(pos) {
   if (show) {
     const t = K.posOf(currentTarget);
     const err = Math.hypot(pos[0] - t[0], pos[1] - t[1], pos[2] - t[2]);
-    $("ee-err").textContent = err < 1e-3 ? err.toExponential(1) : err.toFixed(1);
+    $("ee-err").textContent = err < 1e-3 ? "< 0.001" : err.toFixed(3);
   }
 }
 

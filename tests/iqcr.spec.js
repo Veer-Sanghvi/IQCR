@@ -97,8 +97,7 @@ test.describe("IQCR robot-arm simulation", () => {
     // on a converged case the end-effector readout sits on the target within the solver's 1e-3 mm tolerance
     if (await page.locator("#ik-result .badge.good").count()) {
       await expect(page.locator("#ee-err-wrap")).toBeVisible();
-      const err = parseFloat(await page.locator("#ee-err").textContent());
-      expect(err).toBeLessThan(1e-3);
+      await expect(page.locator("#ee-err")).toHaveText("< 0.001");
     }
   });
 
