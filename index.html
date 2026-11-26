@@ -17,6 +17,11 @@
 <meta name="twitter:title" content="IQCR: Inspection and Quality Control Robots">
 <meta name="twitter:description" content="Interactive 3D simulation of an ABB IRB 120 six-axis arm with a real inverse-kinematics solver running live in the browser.">
 <meta name="twitter:image" content="https://veer-sanghvi.github.io/assets/og-card.png">
+<meta name="citation_title" content="Inspection and Quality Control Robots">
+<meta name="citation_author" content="Sanghvi, Veer">
+<meta name="citation_publication_date" content="2026">
+<meta name="citation_conference_title" content="IEEE ICACR 2026">
+<meta name="citation_pdf_url" content="https://veer-sanghvi.github.io/IQCR/conference_paper/IQCR_camera_ready_6page.pdf">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦾</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -386,6 +391,21 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
     <p class="chart-title">Envelope in the X–Z plane (base joint = 0°)</p>
     <div class="chart-wrap"><svg class="chart" id="chart-envelope" viewBox="0 0 640 480"></svg></div>
   </div>
+</section>
+
+<section id="related-work">
+  <div class="section-head">
+    <span class="eyebrow">04. Related work</span>
+    <h2>Papers behind the solver and the inspection idea</h2>
+    <p class="lede">Each line says what the paper covers and where it touches IQCR. None of them claims IQCR extends it.</p>
+  </div>
+  <ol class="small" style="padding-left:1.25rem; line-height:1.7; max-width:72ch;">
+    <li><a href="https://doi.org/10.1115/1.4011045">Denavit and Hartenberg (1955). A Kinematic Notation for Lower-Pair Mechanisms Based on Matrices. Journal of Applied Mechanics.</a> The original paper on DH parameters; this page builds the ABB IRB 120 arm from them.</li>
+    <li><a href="https://doi.org/10.1109/TSMC.1986.289285">Wampler (1986). Manipulator Inverse Kinematic Solutions Based on Vector Formulations and Damped Least-Squares Methods. IEEE Transactions on Systems, Man, and Cybernetics.</a> One of the founding papers on damped least-squares inverse kinematics, the solver type that runs here and in the MATLAB source.</li>
+    <li><a href="https://doi.org/10.1080/2151237X.2005.10129202">Buss and Kim (2005). Selectively Damped Least Squares for Inverse Kinematics. Journal of Graphics Tools.</a> A refinement of damped least squares aimed at the convergence trouble seen in the one failed pose.</li>
+    <li><a href="https://doi.org/10.1016/j.ifacol.2017.08.1209">Di Vito et al. (2017). A Comparison of Damped Least Squares Algorithms for Inverse Kinematics of Robot Manipulators. IFAC-PapersOnLine.</a> Benchmarks damped least-squares variants against each other, a reference point for the solver-versus-closed-form comparison above.</li>
+    <li><a href="https://doi.org/10.18178/ijmerr.13.1.161-168">Gurau et al. (2024). Laser Scanner-Based Robotic Coordinate Measuring Machine. International Journal of Mechanical Engineering and Robotics Research.</a> Puts a laser scanner on a robot arm for dimensional measurement, close to the arm-mounted inspection cell IQCR proposes but has not built.</li>
+  </ol>
 </section>
 
 </main>

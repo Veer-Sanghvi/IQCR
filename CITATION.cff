@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software or the paper, please cite it as below."
+type: software
+title: "IQCR: Inspection and Quality Control Robots"
+abstract: "Live 3D simulation of an ABB IRB 120 six-axis arm and its damped-least-squares inverse-kinematics solver, running client-side in the browser."
+authors:
+  - family-names: Sanghvi
+    given-names: Veer
+repository-code: "https://github.com/Veer-Sanghvi/IQCR"
+url: "https://veer-sanghvi.github.io/IQCR/"
+preferred-citation:
+  type: conference-paper
+  title: "Inspection and Quality Control Robots"
+  authors:
+    - family-names: Sanghvi
+      given-names: Veer
+  collection-title: "IEEE ICACR 2026"
+  conference:
+    name: "IEEE ICACR 2026"
+    city: Nanjing
+    country: CN
+  year: 2026
+  url: "https://veer-sanghvi.github.io/IQCR/conference_paper/IQCR_camera_ready_6page.pdf"
