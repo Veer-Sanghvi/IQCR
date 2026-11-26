@@ -261,7 +261,13 @@ input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; 
 }
 .target-tag span{color:var(--amber); font-weight:700;}
 .target-tag b{color:var(--ink); font-weight:500; white-space:pre;}
+.target-tag{display:grid; grid-template-columns:auto auto; column-gap:8px; row-gap:1px;}
+.target-tag small{grid-column:1 / -1; color:var(--muted); font-size:10px; letter-spacing:0.03em;}
 .target-tag[hidden]{display:none;}
+.target-leader{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:1;}
+.target-leader line{stroke:var(--amber); stroke-width:1; opacity:0.7;}
+.target-leader circle{fill:var(--amber);}
+.target-leader[hidden]{display:none;}
 .auto-demo-badge .dot{
   width:6px; height:6px; border-radius:50%; background:var(--amber);
   animation:pulse-dot 1.4s ease-in-out infinite;
@@ -425,6 +431,7 @@ footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl)
           <span>end-effector X <b id="ee-x">0</b> mm</span>
           <span>Y <b id="ee-y">0</b> mm</span>
           <span>Z <b id="ee-z">0</b> mm</span>
+          <span id="ee-err-wrap" hidden title="distance from the end-effector to the IK target">to target <b id="ee-err">0</b> mm</span>
           <span title="Yoshikawa manipulability index, w = |det(J)| (Craig, Introduction to Robotics, ch. 8, Eq. 8.5-8.6), shown as a multiple of its value at the home pose. Lower means closer to a kinematic singularity (det(J) = 0) -- the arm is about to lose a degree of freedom.">manipulability <b id="manip-w">1.00x</b> home</span>
         </span>
       </div>

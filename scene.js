@@ -126,8 +126,15 @@ export function createRobotScene(hostEl) {
   label.className = "target-tag";
   label.dataset.targetLabel = "";
   label.hidden = true;
-  label.innerHTML = "<span>TARGET</span><b></b>";
+  label.innerHTML = `<span>TARGET</span><b></b><small>part at ${STANDOFF} mm standoff</small>`;
   hostEl.appendChild(label);
+  const leader = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  leader.setAttribute("class", "target-leader");
+  leader.innerHTML = '<line x1="0" y1="0" x2="0" y2="0"></line><circle r="3"></circle>';
+  leader.setAttribute("hidden", "");
+  hostEl.appendChild(leader);
+  const leaderLine = leader.firstElementChild, leaderDot = leader.lastElementChild;
+  const tcpWorld = new THREE.Vector3();
   const partWorld = new THREE.Vector3();
   let flash = 0; // 1 right after convergence, decays to 0; rim brightness follows it
 
@@ -167,7 +174,8 @@ export function createRobotScene(hostEl) {
     target.visible = !!T;
     hostEl.dataset.target = T ? "set" : "none";
     label.hidden = !T;
-    if (!T) { ghost.group.visible = false; drop.visible = floorRing.visible = false; return; }
+    leader.toggleAttribute("hidden", !T);
+    if (!T) { ghost.group.visible = false; drop.visible = floorRing.visible = false; desiredDist = baseDist; return; }
     const m = mat4ToThree(T);
     target.position.setFromMatrixPosition(m);
     target.quaternion.setFromRotationMatrix(m);
@@ -179,7 +187,10 @@ export function createRobotScene(hostEl) {
     pos.needsUpdate = true;
     floorRing.position.set(partWorld.x, partWorld.y, 1.6);
     drop.visible = floorRing.visible = partWorld.z > 40;
-    label.lastElementChild.textContent = `${partWorld.x.toFixed(0)} ${partWorld.y.toFixed(0)} ${partWorld.z.toFixed(0)} mm`;
+    tcpWorld.copy(target.position);
+    // the label states the IK target (where the TCP goes); the part is STANDOFF mm further along the tool axis
+    label.children[1].textContent = `${tcpWorld.x.toFixed(0)} ${tcpWorld.y.toFixed(0)} ${tcpWorld.z.toFixed(0)} mm`;
+    fitTarget();
     ghostPosed = Array.isArray(q);
     if (ghostPosed) ghost.update(K.fkChain(q).frames);
     ghost.group.visible = ghostWanted && ghostPosed;
@@ -190,14 +201,45 @@ export function createRobotScene(hostEl) {
   // reduced-motion visitor gets no pulse at all
   function flashTarget() { ghost.group.visible = false; if (!reduceMotion.matches) flash = 1; }
 
+  // the label sits in the margin on the part's side of the canvas (away from
+  // the arm, whose base projects near the centre) with a leader to the part
   const screen = new THREE.Vector3();
   function placeLabel() {
     if (label.hidden) return;
     screen.copy(partWorld).project(camera);
     const W = hostEl.clientWidth, H = hostEl.clientHeight;
-    const x = Math.max(8, Math.min(W - label.offsetWidth - 8, (screen.x * 0.5 + 0.5) * W + 16));
-    const y = Math.max(8, Math.min(H - label.offsetHeight - 8, (-screen.y * 0.5 + 0.5) * H - 36));
+    const px = (screen.x * 0.5 + 0.5) * W, py = (-screen.y * 0.5 + 0.5) * H;
+    const w = label.offsetWidth, h = label.offsetHeight, right = px >= W / 2;
+    const x = right ? W - w - 10 : 10;
+    // narrow canvases: the top corner, which the arm never reaches; wide ones:
+    // just above the part (below it when the part is at the top), never over it
+    const y = W < 600 ? 8 : py > h + 48 ? Math.min(H - h - 8, py - h - 28) : Math.min(H - h - 8, py + 36);
     label.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+    leaderLine.setAttribute("x1", right ? x - 4 : x + w + 4); leaderLine.setAttribute("y1", y + h / 2);
+    leaderLine.setAttribute("x2", px); leaderLine.setAttribute("y2", py);
+    leaderDot.setAttribute("cx", px); leaderDot.setAttribute("cy", py);
+  }
+
+  // camera distance: the base framing, pulled back just enough that the part
+  // stays in view, until the visitor orbits or zooms themselves
+  const baseDist = CAM_FINAL.distanceTo(controls.target);
+  let desiredDist = baseDist, userTouched = false;
+  controls.addEventListener("start", () => { userTouched = true; });
+  const dirTmp = new THREE.Vector3(), posTmp = new THREE.Vector3(), ndc = new THREE.Vector3();
+  function fitTarget() {
+    if (userTouched) return;
+    const saved = camera.position.clone();
+    dirTmp.copy(CAM_FINAL).sub(controls.target).normalize();
+    desiredDist = baseDist * 2.4;
+    for (let d = baseDist; d <= baseDist * 2.4; d *= 1.06) {
+      camera.position.copy(controls.target).addScaledVector(dirTmp, d);
+      camera.lookAt(controls.target);
+      camera.updateMatrixWorld();
+      ndc.copy(partWorld).project(camera);
+      if (Math.abs(ndc.x) < 0.8 && Math.abs(ndc.y) < 0.78) { desiredDist = d; break; }
+    }
+    camera.position.copy(saved);
+    camera.lookAt(controls.target);
   }
 
   function resize() {
@@ -206,6 +248,9 @@ export function createRobotScene(hostEl) {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
+    const narrow = w < 600;
+    ghost.material.opacity = narrow ? 0.06 : 0.12;
+    arm.glow.material.opacity = narrow ? 0.3 : 0.55;
   }
   new ResizeObserver(resize).observe(hostEl);
   resize();
@@ -224,6 +269,11 @@ export function createRobotScene(hostEl) {
       const eased = 1 - Math.pow(1 - t, 3);
       camera.position.lerpVectors(CAM_START, CAM_FINAL, eased);
       if (t >= 1) flyStart = null;
+    }
+    if (flyStart === null && !userTouched) {
+      posTmp.copy(camera.position).sub(controls.target);
+      const dist = posTmp.length();
+      if (Math.abs(dist - desiredDist) > 0.5) camera.position.copy(controls.target).addScaledVector(posTmp.normalize(), reduceMotion.matches ? desiredDist : dist + (desiredDist - dist) * 0.08);
     }
     if (flash > 0) flash = Math.max(0, flash - dt / 1.2);
     rimMat.opacity = 0.3 + 0.7 * flash;

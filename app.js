@@ -59,6 +59,7 @@ const CURVE_COLORS = ["#d29922", "#58a6ff", "#39d353", "#f85149", "#c98500", "#9
 
 // ---------------- scene ----------------
 const scene = createRobotScene($("canvas-host"));
+let mode = "manual", currentTarget = null;
 
 function qFromSliders() {
   return [0, 1, 2, 3, 4, 5].map((i) => deg2rad(+$(`q${i}`).value));
@@ -67,6 +68,14 @@ function updateEEReadout(pos) {
   $("ee-x").textContent = pos[0].toFixed(0);
   $("ee-y").textContent = pos[1].toFixed(0);
   $("ee-z").textContent = pos[2].toFixed(0);
+  // residual to the IK target, shown only while a target exists in IK mode
+  const show = mode === "ik" && currentTarget;
+  $("ee-err-wrap").hidden = !show;
+  if (show) {
+    const t = K.posOf(currentTarget);
+    const err = Math.hypot(pos[0] - t[0], pos[1] - t[1], pos[2] - t[2]);
+    $("ee-err").textContent = err < 1e-3 ? err.toExponential(1) : err.toFixed(1);
+  }
 }
 
 // manipulability at the home pose, used to normalize the live readout into a
@@ -101,7 +110,6 @@ $("reset-manual").addEventListener("click", () => {
 });
 
 // ---------------- mode tabs ----------------
-let mode = "manual";
 function setMode(next) {
   mode = next;
   $("tab-manual").classList.toggle("active", mode === "manual");
@@ -110,6 +118,7 @@ function setMode(next) {
   $("panel-ik").style.display = mode === "ik" ? "flex" : "none";
   $("mode-pill").textContent = mode === "manual" ? "MANUAL POSE" : "INVERSE KINEMATICS";
   if (mode === "manual") renderManual(); // back to the slider pose, not wherever the solver left the arm
+  else if (currentTarget) updateEEReadout([+$("ee-x").textContent, +$("ee-y").textContent, +$("ee-z").textContent]);
   scene.setTarget(mode === "ik" ? currentTarget : null, currentQTrue);
   scene.setGhostVisible($("show-target").checked);
 }
@@ -117,7 +126,7 @@ $("tab-manual").addEventListener("click", () => setMode("manual"));
 $("tab-ik").addEventListener("click", () => setMode("ik"));
 
 // ---------------- IK demo ----------------
-let currentTarget = null, currentQTrue = null, currentQInit = null, caseCounter = 0;
+let currentQTrue = null, currentQInit = null, caseCounter = 0;
 const liveCurves = []; // {label, errNorms, color}
 
 function renderConvergenceChart() {

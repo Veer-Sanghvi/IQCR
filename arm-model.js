@@ -201,7 +201,7 @@ export function ghostArm(arm, color = LIME, opacity = 0.12) {
   drop.forEach((o) => o.parent.remove(o));
   const links = [];
   group.traverse((o) => { if (o.userData.link !== undefined) links[o.userData.link] = o; });
-  return { group, links, update: (frames) => poseLinks(links, frames) };
+  return { group, links, material: mat, update: (frames) => poseLinks(links, frames) };
 }
 
 // Where each joint label points: J1 on the turret, J2 the shoulder, J3 the

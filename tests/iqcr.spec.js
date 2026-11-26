@@ -94,6 +94,12 @@ test.describe("IQCR robot-arm simulation", () => {
     await page.locator("#solve-ik").click();
     await expect(page.locator("#ik-result .badge")).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#live-table tbody tr")).toHaveCount(1);
+    // on a converged case the end-effector readout sits on the target within the solver's 1e-3 mm tolerance
+    if (await page.locator("#ik-result .badge.good").count()) {
+      await expect(page.locator("#ee-err-wrap")).toBeVisible();
+      const err = parseFloat(await page.locator("#ee-err").textContent());
+      expect(err).toBeLessThan(1e-3);
+    }
   });
 
   test("generating a target places the inspection part with a TARGET label; manual mode hides it", async ({ page }) => {
@@ -104,7 +110,7 @@ test.describe("IQCR robot-arm simulation", () => {
     await expect(host).toHaveAttribute("data-target", "set");
     const label = page.locator("#canvas-host [data-target-label]");
     await expect(label).toBeVisible();
-    await expect(label).toHaveText(/TARGET\s*-?\d+ -?\d+ -?\d+ mm/);
+    await expect(label).toHaveText(/TARGET\s*-?\d+ -?\d+ -?\d+ mm.*120 mm standoff/);
     // the ghost checkbox only toggles the translucent arm; the part stays
     await page.locator("#show-target").uncheck();
     await expect(host).toHaveAttribute("data-target", "set");
