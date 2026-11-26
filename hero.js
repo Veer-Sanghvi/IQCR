@@ -33,6 +33,9 @@ function radialTexture(inner, outer, size = 256, hold = 0) {
 // The arm. Link i lives in a group whose matrix is frames[i + 1]; in that frame
 // the link runs from P_i = Rx(-alpha_i) * (-a_i, 0, -d_i) to the origin, which is
 // pose independent, so only the six group matrices change per frame.
+// Proportions follow the IRB 120: a rounded base plate with a turret, a chunky
+// shoulder housing hung off one side of the turret, a tapered upper arm, the
+// J4 motor housing behind the elbow, a slim forearm and a compact wrist.
 export function buildArm(K) {
   const group = new THREE.Group();
   const paint = new THREE.MeshPhysicalMaterial({ color: PAINT, roughness: 0.42, metalness: 0.0, clearcoat: 0.5, clearcoatRoughness: 0.3, envMapIntensity: 0.6 });
@@ -50,40 +53,75 @@ export function buildArm(K) {
     parent.add(m);
     return m;
   };
+  // a link body: rounded at both ends, tapering from r0 at `from` to r1 at `to`
+  const linkBody = (parent, from, to, r0, r1, mat) => {
+    const dir = to.clone().sub(from).normalize();
+    const len = from.distanceTo(to);
+    const q = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, dir);
+    add(parent, new THREE.CylinderGeometry(r1, r0, len, 40), mat, { pos: from.clone().addScaledVector(dir, len / 2), quat: q });
+    add(parent, new THREE.SphereGeometry(r0, 32, 20), mat, { pos: from.clone() });
+    add(parent, new THREE.SphereGeometry(r1, 32, 20), mat, { pos: to.clone() });
+    return { dir, q };
+  };
+  // a joint housing: a graphite drum on the local z axis with rubber end caps
+  const housing = (parent, r, h, zOff = 0) => {
+    add(parent, new THREE.CylinderGeometry(r, r, h, 40), graphite, { pos: new THREE.Vector3(0, 0, zOff), rotX: Math.PI / 2 });
+    add(parent, new THREE.CylinderGeometry(r * 0.62, r * 0.62, h + 6, 32), rubber, { pos: new THREE.Vector3(0, 0, zOff), rotX: Math.PI / 2 });
+  };
 
-  // static base casting in the world frame
-  add(group, new THREE.CylinderGeometry(118, 124, 22, 48), graphite, { pos: new THREE.Vector3(0, 0, 11), rotX: Math.PI / 2 });
-  add(group, new THREE.CylinderGeometry(78, 108, 88, 48), paint, { pos: new THREE.Vector3(0, 0, 66), rotX: Math.PI / 2 });
-  add(group, new THREE.TorusGeometry(80, 4, 10, 48), rubber, { pos: new THREE.Vector3(0, 0, 110) });
+  // static base in the world frame: a rounded plate, a lip, the turret foot
+  const plate = new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0), new THREE.Vector2(150, 0), new THREE.Vector2(158, 10), new THREE.Vector2(158, 24),
+    new THREE.Vector2(146, 36), new THREE.Vector2(0, 36),
+  ], 56);
+  add(group, plate, graphite, { rotX: Math.PI / 2 });
+  const foot = new THREE.LatheGeometry([
+    new THREE.Vector2(0, 36), new THREE.Vector2(122, 36), new THREE.Vector2(118, 70), new THREE.Vector2(96, 112), new THREE.Vector2(0, 112),
+  ], 56);
+  add(group, foot, paint, { rotX: Math.PI / 2 });
+  add(group, new THREE.TorusGeometry(92, 4, 10, 48), rubber, { pos: new THREE.Vector3(0, 0, 112) });
 
-  // per-link radii: turret, upper arm, elbow offset, forearm, (zero-length wrist), flange
-  const linkR = [60, 44, 40, 34, 0, 24];
-  const housingR = [0, 68, 50, 42, 34, 30, 0]; // housing at frames[j] origin, j = 1..5
-  const housingH = [0, 120, 104, 92, 76, 64, 0];
   const links = [];
   for (let i = 0; i < 6; i++) {
     const g = new THREE.Group();
     g.matrixAutoUpdate = false;
     group.add(g);
     const P = new THREE.Vector3(-K.DH_A[i], 0, -K.DH_D[i]).applyAxisAngle(X_AXIS, -K.DH_ALPHA[i]);
-    const len = P.length();
-    if (len > 1 && linkR[i] > 0) {
-      const dir = P.clone().negate().normalize();
+    const O = new THREE.Vector3();
+    if (i === 0) {
+      // turret: from the foot up to the shoulder, slightly tapered, then the
+      // shoulder housing hung off one side of the turret on the J2 axis
+      const top = P.clone().addScaledVector(P.clone().negate().normalize(), K.DH_D[0]);
+      const dir = top.clone().sub(P).normalize();
       const q = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, dir);
-      const start = i === 0 ? P.clone().addScaledVector(dir, 112) : P.clone();
-      const segLen = start.distanceTo(new THREE.Vector3());
-      const mid = start.clone().addScaledVector(dir, segLen / 2);
-      const geo = i === 0
-        ? new THREE.CylinderGeometry(linkR[i], linkR[i] + 6, segLen, 40)
-        : new THREE.CapsuleGeometry(linkR[i], Math.max(segLen - linkR[i] * 2, 1), 6, 28);
-      add(g, geo, paint, { pos: mid, quat: q });
-      // a dark seam ring where the painted link meets its housing
-      if (i > 0) add(g, new THREE.TorusGeometry(linkR[i] + 1.5, 2.2, 8, 36), rubber, { pos: start.clone().addScaledVector(dir, linkR[i] * 0.9), quat: q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI / 2)) });
-    }
-    const j = i + 1;
-    if (housingR[j] > 0) {
-      add(g, new THREE.CylinderGeometry(housingR[j], housingR[j], housingH[j], 40), graphite, { rotX: Math.PI / 2 });
-      add(g, new THREE.CylinderGeometry(housingR[j] * 0.62, housingR[j] * 0.62, housingH[j] + 6, 32), rubber, { rotX: Math.PI / 2 });
+      const from = P.clone().addScaledVector(dir, 112);
+      const len = from.distanceTo(top);
+      add(g, new THREE.CylinderGeometry(62, 76, len, 40), paint, { pos: from.clone().addScaledVector(dir, len / 2), quat: q });
+      add(g, new THREE.SphereGeometry(62, 32, 20), paint, { pos: top });
+      housing(g, 80, 150, 34);
+    } else if (i === 1) {
+      // upper arm: tapers from the shoulder to the elbow, seam at the shoulder
+      const { dir, q } = linkBody(g, P, O, 50, 40, paint);
+      add(g, new THREE.TorusGeometry(51, 2.4, 8, 40), rubber, { pos: P.clone().addScaledVector(dir, 36), quat: q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI / 2)) });
+      housing(g, 56, 118);
+    } else if (i === 2) {
+      // elbow offset link (70 mm); the J4 drum on the next link covers its far end
+      linkBody(g, P, O, 40, 40, paint);
+    } else if (i === 3) {
+      // forearm: the J4 motor drum behind the elbow, then a slim tube to the wrist
+      const dir = O.clone().sub(P).normalize();
+      const q = new THREE.Quaternion().setFromUnitVectors(Y_AXIS, dir);
+      add(g, new THREE.CylinderGeometry(42, 46, 110, 40), paint, { pos: P.clone().addScaledVector(dir, 55), quat: q });
+      add(g, new THREE.SphereGeometry(46, 32, 20), paint, { pos: P.clone() });
+      add(g, new THREE.TorusGeometry(43, 2.4, 8, 40), rubber, { pos: P.clone().addScaledVector(dir, 110), quat: q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, Math.PI / 2)) });
+      linkBody(g, P.clone().addScaledVector(dir, 110), O, 32, 30, paint);
+      housing(g, 36, 84);
+    } else if (i === 4) {
+      // zero-length wrist link: the J6 housing sits on the J5 drum
+      housing(g, 30, 64);
+    } else {
+      // flange: a short graphite stub to the tool point
+      linkBody(g, P, O, 24, 22, graphite);
     }
     links.push(g);
   }
@@ -119,6 +157,13 @@ export function buildArm(K) {
     }
   }
   return { group, update, glow, cone };
+}
+
+// Where each joint label points: J1 on the turret, J2 the shoulder, J3 the
+// elbow, J4 the middle of the forearm, J5 the wrist centre, J6 the flange.
+export function jointAnchors(frames) {
+  const pts = frames.map((T) => new THREE.Vector3(T[0][3], T[1][3], T[2][3]));
+  return [new THREE.Vector3(0, 0, 200), pts[1], pts[2], pts[3].clone().lerp(pts[4], 0.5), pts[4], pts[6]];
 }
 
 // Three-point studio: warm key with a soft shadow, cool rim, low fill, a
@@ -229,9 +274,9 @@ export function createHero(host) {
 
   const camera = new THREE.PerspectiveCamera(28, 1, 10, 6000);
   camera.up.copy(Z_AXIS);
-  camera.position.set(1180, -400, 440);
+  camera.position.set(1150, -820, 420);
   const controls = new OrbitControls(camera, host);
-  controls.target.set(70, 230, 240);
+  controls.target.set(140, -40, 330);
   controls.enableZoom = false;
   controls.enablePan = false;
   controls.enableDamping = true;
@@ -242,7 +287,7 @@ export function createHero(host) {
   controls.update();
 
   // ---- pointer target ----
-  const CENTER = new THREE.Vector3(150, 300, 300);
+  const CENTER = new THREE.Vector3(360, -150, 330);
   const SHOULDER = new THREE.Vector3(0, 0, K.DH_D[0]);
   const REACH = 540;
   const targetRaw = CENTER.clone();
@@ -289,23 +334,25 @@ export function createHero(host) {
   // ---- annotation overlay: J1 to J6 leader lines and live angles ----
   const tags = Array.from(host.querySelectorAll("[data-joint]"));
   const lines = Array.from(host.querySelectorAll("[data-leader]"));
-  const anchors = tags.map(() => new THREE.Vector3());
+  const dots = Array.from(host.querySelectorAll("[data-leader-dot]"));
   const tcp = host.querySelector("[data-tcp]");
   function updateOverlay(frames) {
     const r = host.getBoundingClientRect();
     const pts = frames.map((T) => new THREE.Vector3(T[0][3], T[1][3], T[2][3]));
-    // J1 sits on the turret, J2 to J6 at the frame origins that carry those axes
-    anchors[0].set(0, 0, 215);
-    for (let j = 1; j < 6; j++) anchors[j].copy(pts[j]);
+    const anchors = jointAnchors(frames);
     const v = new THREE.Vector3();
+    const screen = anchors.map((a) => { v.copy(a).project(camera); return [(v.x * 0.5 + 0.5) * r.width, (-v.y * 0.5 + 0.5) * r.height]; });
+    // the tag column follows the joints' order on screen, top to bottom, so the leaders never cross
+    const rank = screen.map((p, j) => [p[1], j]).sort((a, b) => a[0] - b[0]).map(([, j]) => j);
+    rank.forEach((j, k) => { tags[j].style.order = k; });
     tags.forEach((tag, j) => {
-      v.copy(anchors[j]).project(camera);
-      const x = (v.x * 0.5 + 0.5) * r.width, y = (-v.y * 0.5 + 0.5) * r.height;
+      const [x, y] = screen[j];
       const deg = (q[j] * 180) / Math.PI;
       tag.lastElementChild.textContent = `${deg >= 0 ? "+" : "−"}${Math.abs(deg).toFixed(1).padStart(5, " ")}°`;
       const tr = tag.getBoundingClientRect();
-      const line = lines[j];
+      const line = lines[j], dot = dots[j];
       if (line) line.setAttribute("x1", tr.right - r.left + 4), line.setAttribute("y1", tr.top - r.top + tr.height / 2), line.setAttribute("x2", x), line.setAttribute("y2", y);
+      if (dot) dot.setAttribute("cx", x), dot.setAttribute("cy", y);
     });
     if (tcp) {
       const p = pts[6];
@@ -325,9 +372,9 @@ export function createHero(host) {
     // whole arm sits above the copy; desktop keeps the long-lens studio look
     const portrait = camera.aspect < 0.9;
     camera.fov = portrait ? 50 : camera.aspect < 1.4 ? 34 : 28;
-    controls.target.set(70, portrait ? 230 : 140, portrait ? 130 : 230);
+    controls.target.set(portrait ? 120 : 140, portrait ? -60 : -40, portrait ? 340 : 330);
     const dir = camera.position.clone().sub(controls.target).normalize();
-    camera.position.copy(controls.target).addScaledVector(dir, portrait ? 1750 : 1280);
+    camera.position.copy(controls.target).addScaledVector(dir, portrait ? 1550 : 1500);
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
     needsRender = true;
