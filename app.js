@@ -109,14 +109,15 @@ function setMode(next) {
   $("panel-manual").style.display = mode === "manual" ? "flex" : "none";
   $("panel-ik").style.display = mode === "ik" ? "flex" : "none";
   $("mode-pill").textContent = mode === "manual" ? "MANUAL POSE" : "INVERSE KINEMATICS";
-  scene.setTarget(null, mode === "ik" && currentTarget ? true : false);
-  if (mode === "ik" && currentTarget) scene.setTarget(currentTarget, $("show-target").checked);
+  if (mode === "manual") renderManual(); // back to the slider pose, not wherever the solver left the arm
+  scene.setTarget(mode === "ik" ? currentTarget : null, currentQTrue);
+  scene.setGhostVisible($("show-target").checked);
 }
 $("tab-manual").addEventListener("click", () => setMode("manual"));
 $("tab-ik").addEventListener("click", () => setMode("ik"));
 
 // ---------------- IK demo ----------------
-let currentTarget = null, currentQInit = null, caseCounter = 0;
+let currentTarget = null, currentQTrue = null, currentQInit = null, caseCounter = 0;
 const liveCurves = []; // {label, errNorms, color}
 
 function renderConvergenceChart() {
@@ -158,17 +159,20 @@ function currentLambda() { return Math.pow(10, +$("lambda").value); }
 function generateTarget() {
   const qTrue = K.randomQ(Math.random);
   currentTarget = K.fk(qTrue);
+  currentQTrue = qTrue;
   const perturb = deg2rad(currentPerturbDeg());
   currentQInit = qTrue.map((v, i) => clamp(v + perturb * (Math.random() - 0.5) * 2, K.QMIN[i], K.QMAX[i]));
   const { frames } = K.fkChain(currentQInit);
   const pos = scene.updatePose(frames);
   updateEEReadout(pos);
   updateManipReadout(currentQInit);
-  scene.setTarget(currentTarget, $("show-target").checked);
+  scene.setTarget(currentTarget, qTrue);
+  scene.setGhostVisible($("show-target").checked);
   $("solve-ik").disabled = false;
   $("ik-result").innerHTML = `<p class="small" style="margin-top:8px;">Target generated. Arm placed at a perturbed starting guess. Click Solve.</p>`;
 }
 
+let solveTimer = null; // the running solve animation, so a demo solve can be cut short
 function solveIK(onDone) {
   if (!currentTarget || !currentQInit) { if (onDone) onDone(); return; }
   $("solve-ik").disabled = true;
@@ -176,7 +180,7 @@ function solveIK(onDone) {
   // animate through the trace; under reduced motion jump straight to the final pose
   let i = reduceMotion.matches ? result.trace.length - 1 : 0;
   const stepEvery = reduceMotion.matches ? 0 : Math.max(15, Math.min(60, Math.floor(600 / Math.max(result.trace.length, 1))));
-  const timer = setInterval(() => {
+  const timer = solveTimer = setInterval(() => {
     const q = result.trace[Math.min(i, result.trace.length - 1)];
     const { frames } = K.fkChain(q);
     const pos = scene.updatePose(frames);
@@ -191,6 +195,7 @@ function solveIK(onDone) {
       if (liveCurves.length > 8) liveCurves.shift();
       renderConvergenceChart();
       appendLiveRow(caseCounter, result.posErrFinal, result.oriErrFinalDeg, result.iterations, result.converged);
+      if (result.converged) scene.flashTarget();
       const restartWord = `${result.restarts} restart${result.restarts === 1 ? "" : "s"}`;
       const restartNote = result.restarts > 0 ? `, ${restartWord}` : "";
       $("ik-result").innerHTML = result.converged
@@ -203,7 +208,7 @@ function solveIK(onDone) {
 }
 
 $("gen-target").addEventListener("click", generateTarget);
-$("show-target").addEventListener("change", () => { if (currentTarget) scene.setTarget(currentTarget, $("show-target").checked); });
+$("show-target").addEventListener("change", (e) => scene.setGhostVisible(e.target.checked));
 $("solve-ik").addEventListener("click", () => solveIK());
 
 // ---------------- auto-demo (plays until the visitor touches anything) ----------------
@@ -217,6 +222,10 @@ function stopAutoDemo() {
   autoDemoActive = false;
   document.documentElement.dataset.autoDemo = "off";
   clearTimeout(autoDemoTimer);
+  // only the demo can have a solve running at this point; stop its animation
+  // so it cannot log a row after the table below is cleared
+  clearInterval(solveTimer);
+  $("solve-ik").disabled = !currentTarget;
   const badge = document.getElementById("auto-demo-badge");
   if (badge) badge.classList.add("hidden");
   // clear the demo's own runs so the visitor's own solves start from a clean slate

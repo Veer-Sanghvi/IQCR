@@ -96,6 +96,23 @@ test.describe("IQCR robot-arm simulation", () => {
     await expect(page.locator("#live-table tbody tr")).toHaveCount(1);
   });
 
+  test("generating a target places the inspection part with a TARGET label; manual mode hides it", async ({ page }) => {
+    const host = page.locator("#canvas-host");
+    await expect(host).toHaveAttribute("data-target", "none");
+    await page.locator("#tab-ik").click();
+    await page.locator("#gen-target").click();
+    await expect(host).toHaveAttribute("data-target", "set");
+    const label = page.locator("#canvas-host [data-target-label]");
+    await expect(label).toBeVisible();
+    await expect(label).toHaveText(/TARGET\s*-?\d+ -?\d+ -?\d+ mm/);
+    // the ghost checkbox only toggles the translucent arm; the part stays
+    await page.locator("#show-target").uncheck();
+    await expect(host).toHaveAttribute("data-target", "set");
+    await page.locator("#tab-manual").click();
+    await expect(host).toHaveAttribute("data-target", "none");
+    await expect(label).toBeHidden();
+  });
+
   test("raising the starting-guess error slider updates its label", async ({ page }) => {
     await page.locator("#tab-ik").click();
     await setSlider(page.locator("#perturb"), 40);

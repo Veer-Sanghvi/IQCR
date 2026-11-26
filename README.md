@@ -34,8 +34,9 @@ The paper's hand-coded MATLAB script paired the standard DH matrix with a twist 
 ```
 index.html                              Page markup and styling
 kinematics.js                           Client-side forward/inverse kinematics solver
-scene.js / app.js                       3D viewer and UI wiring
-hero.js                                 Showpiece hero: the same arm as solid hardware, pointer-tracking IK
+arm-model.js                            The IRB 120 model (links, housings, sensor, studio lighting) shared by the viewer and the hero
+scene.js / app.js                       3D viewer and UI wiring; IK targets shown as a flange part to inspect
+hero.js                                 Showpiece hero: the same arm, pointer-tracking IK
 og/                                     Link-preview card source and its Playwright render script
 tests/iqcr.spec.js                      Playwright tests
 tests/fk-check.js                       Node check of the DH table against the toolbox CSVs
