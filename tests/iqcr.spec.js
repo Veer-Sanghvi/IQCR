@@ -12,6 +12,32 @@ test("auto-demo badge is visible on a fresh load, before any interaction", async
   await expect(page.locator("#auto-demo-badge")).toBeVisible();
 });
 
+test.describe("prefers-reduced-motion", () => {
+  // page.emulateMedia is used instead of test.use({ reducedMotion }); the latter did not apply in this runner
+  test("auto-demo never starts, scene is static, orbit still works", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (err) => errors.push(err.message));
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-auto-demo", "off");
+    const badgeHidden = await page.locator("#auto-demo-badge").evaluate((el) => el.classList.contains("hidden"));
+    expect(badgeHidden).toBe(true);
+    // wait past the 1400 ms auto-demo kickoff and confirm nothing ran
+    await page.waitForTimeout(2500);
+    await expect(page.locator("#mode-pill")).toHaveText("MANUAL POSE");
+    await expect(page.locator("#live-table tbody tr")).toHaveCount(0);
+    // OrbitControls: a drag on the canvas must still work without errors
+    const canvas = page.locator("#canvas-host canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 40, { steps: 8 });
+    await page.mouse.up();
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe("IQCR robot-arm simulation", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");

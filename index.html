@@ -50,7 +50,44 @@
   --font-body: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
+  /* motion tokens, shared with the portfolio */
+  --ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-3d:     cubic-bezier(.2,.8,.2,1);
+  --dur-fast:    .18s;
+  --dur-base:    .3s;
+  --dur-3d:      .6s;
+  --perspective: 1200px;
+  --depth:       120px;
+
   color-scheme: dark;
+}
+
+/* cross-document view transition from the portfolio (same origin) */
+@view-transition { navigation: auto; }
+@keyframes vt-root-in{
+  from{ opacity:0; transform:perspective(var(--perspective)) rotateX(4deg) translateZ(calc(-1 * var(--depth))); }
+}
+@keyframes vt-root-out{
+  to{ opacity:0; transform:perspective(var(--perspective)) rotateX(-3deg) translateZ(calc(-1 * var(--depth))); }
+}
+@media (prefers-reduced-motion: no-preference){
+  ::view-transition-old(root){ animation:vt-root-out var(--dur-3d) var(--ease-3d) both; }
+  ::view-transition-new(root){ animation:vt-root-in var(--dur-3d) var(--ease-3d) both; }
+}
+
+/* section reveals with depth on scroll; browsers without scroll-driven animations get static sections */
+@keyframes reveal-depth{
+  from{ opacity:0; transform:perspective(var(--perspective)) translateZ(calc(-1 * var(--depth))) translateY(14px); }
+  to{ opacity:1; transform:none; }
+}
+@supports (animation-timeline: view()){
+  @media (prefers-reduced-motion: no-preference){
+    .section-head, .lab, .two-col, section > .chart-card{
+      animation:reveal-depth linear both;
+      animation-timeline:view();
+      animation-range:entry 0% entry 35%;
+    }
+  }
 }
 *{box-sizing:border-box;}
 body{

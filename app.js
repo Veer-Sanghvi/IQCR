@@ -7,6 +7,7 @@ const NS = "http://www.w3.org/2000/svg";
 const deg2rad = (d) => (d * Math.PI) / 180;
 const rad2deg = (r) => (r * 180) / Math.PI;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 // ---------------- paper's actual results (embedded, static) ----------------
 const PAPER_RESULTS = [
@@ -172,9 +173,9 @@ function solveIK(onDone) {
   if (!currentTarget || !currentQInit) { if (onDone) onDone(); return; }
   $("solve-ik").disabled = true;
   const result = K.ikSolve(currentQInit, currentTarget, { lambda: currentLambda() });
-  // animate through the trace
-  let i = 0;
-  const stepEvery = Math.max(15, Math.min(60, Math.floor(600 / Math.max(result.trace.length, 1))));
+  // animate through the trace; under reduced motion jump straight to the final pose
+  let i = reduceMotion.matches ? result.trace.length - 1 : 0;
+  const stepEvery = reduceMotion.matches ? 0 : Math.max(15, Math.min(60, Math.floor(600 / Math.max(result.trace.length, 1))));
   const timer = setInterval(() => {
     const q = result.trace[Math.min(i, result.trace.length - 1)];
     const { frames } = K.fkChain(q);
@@ -206,12 +207,15 @@ $("show-target").addEventListener("change", () => { if (currentTarget) scene.set
 $("solve-ik").addEventListener("click", () => solveIK());
 
 // ---------------- auto-demo (plays until the visitor touches anything) ----------------
+// Never runs under prefers-reduced-motion; the scene then holds a static pose.
+// State is mirrored to <html data-auto-demo="running|off"> for tests and CSS.
 let autoDemoActive = true;
 let autoDemoTimer = null;
 
 function stopAutoDemo() {
   if (!autoDemoActive) return;
   autoDemoActive = false;
+  document.documentElement.dataset.autoDemo = "off";
   clearTimeout(autoDemoTimer);
   const badge = document.getElementById("auto-demo-badge");
   if (badge) badge.classList.add("hidden");
@@ -236,7 +240,13 @@ function autoDemoLoop() {
 }
 
 document.getElementById("viewer").addEventListener("pointerdown", stopAutoDemo, { once: true });
-autoDemoTimer = setTimeout(autoDemoLoop, 1400);
+if (reduceMotion.matches) {
+  stopAutoDemo();
+} else {
+  document.documentElement.dataset.autoDemo = "running";
+  autoDemoTimer = setTimeout(autoDemoLoop, 1400);
+}
+reduceMotion.addEventListener("change", (e) => { if (e.matches) stopAutoDemo(); });
 
 // ---------------- IK solver-parameter sliders ----------------
 $("perturb").addEventListener("input", () => { $("v-perturb").textContent = `±${currentPerturbDeg()}°`; });

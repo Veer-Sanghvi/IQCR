@@ -14,7 +14,17 @@ export function createRobotScene(hostEl) {
 
   const camera = new THREE.PerspectiveCamera(42, 1, 1, 6000);
   camera.up.set(0, 0, 1);
-  camera.position.set(950, -1150, 780);
+
+  // camera fly-in on load (about 1.2 s, eased); skipped entirely under reduced motion
+  const CAM_FINAL = new THREE.Vector3(950, -1150, 780);
+  const CAM_START = new THREE.Vector3(1900, -2300, 1500);
+  const FLY_MS = 1200;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let flyStart = reduceMotion.matches ? null : performance.now();
+  camera.position.copy(flyStart === null ? CAM_FINAL : CAM_START);
+  reduceMotion.addEventListener("change", (e) => {
+    if (e.matches && flyStart !== null) { flyStart = null; camera.position.copy(CAM_FINAL); }
+  });
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -27,6 +37,8 @@ export function createRobotScene(hostEl) {
   controls.minDistance = 500;
   controls.maxDistance = 3200;
   controls.update();
+  // the visitor grabbing the scene ends the fly-in where it is
+  controls.addEventListener("start", () => { flyStart = null; });
 
   // lighting
   scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -163,6 +175,12 @@ export function createRobotScene(hostEl) {
 
   function animate() {
     requestAnimationFrame(animate);
+    if (flyStart !== null) {
+      const t = Math.min(1, (performance.now() - flyStart) / FLY_MS);
+      const eased = 1 - Math.pow(1 - t, 3);
+      camera.position.lerpVectors(CAM_START, CAM_FINAL, eased);
+      if (t >= 1) flyStart = null;
+    }
     controls.update();
     renderer.render(scene, camera);
   }
