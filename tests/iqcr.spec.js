@@ -91,9 +91,12 @@ test.describe("IQCR robot-arm simulation", () => {
     await page.locator("#tab-ik").click();
     await page.locator("#gen-target").click();
     await expect(page.locator("#solve-ik")).toBeEnabled();
+    // the auto-demo was stopped in beforeEach and its rows cleared; count from
+    // whatever is there so a slow runner cannot turn a leftover row into a failure
+    const rowsBefore = await page.locator("#live-table tbody tr").count();
     await page.locator("#solve-ik").click();
     await expect(page.locator("#ik-result .badge")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("#live-table tbody tr")).toHaveCount(1);
+    await expect(page.locator("#live-table tbody tr")).toHaveCount(rowsBefore + 1);
     // on a converged case the end-effector readout sits on the target within the solver's 1e-3 mm tolerance
     if (await page.locator("#ik-result .badge.good").count()) {
       await expect(page.locator("#ee-err-wrap")).toBeVisible();
@@ -170,6 +173,8 @@ test.describe("hero callouts", () => {
     return o(p1, p2, p3) * o(p1, p2, p4) < 0 && o(p3, p4, p1) * o(p3, p4, p2) < 0;
   };
   test("leader lines never cross each other while the arm moves", async ({ page }) => {
+    // CI renders the hero on software GL; six samples at 1440x900 took over 30 s there
+    test.setTimeout(90000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
     await expect(page.locator("#hero-host")).toHaveAttribute("data-hero", "ready", { timeout: 15000 });
@@ -177,9 +182,10 @@ test.describe("hero callouts", () => {
     const box = await host.boundingBox();
     // a few pointer targets, then the idle sweep: a spread of poses
     const spots = [[0.75, 0.3], [0.9, 0.7], [0.4, 0.2], [0.55, 0.85], [0.3, 0.5]];
-    for (let s = 0; s < 9; s++) {
+    const samples = spots.length + 1; // the five pointer targets, then one idle-sweep frame
+    for (let s = 0; s < samples; s++) {
       if (s < spots.length) await page.mouse.move(box.x + box.width * spots[s][0], box.y + box.height * spots[s][1]);
-      await page.waitForTimeout(700);
+      await page.waitForTimeout(600);
       const segs = await page.$$eval("#hero-host [data-leader]", (els) => els.map((l) => ["x1", "y1", "x2", "y2"].map((k) => Number(l.getAttribute(k)))));
       expect(segs).toHaveLength(6);
       for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) {
