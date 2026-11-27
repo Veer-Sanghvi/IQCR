@@ -161,6 +161,7 @@ test.describe("showpiece hero", () => {
     expect(drawn).toBe(true);
     await expect(page.locator("#hero-host [data-joint]")).toHaveCount(6);
     await expect(page.locator("#hero-host [data-joint] b").first()).toHaveText(/\d+\.\d°/);
+    await expect(page.locator("[data-tcp]")).toHaveText(/^TCP x -?\d+ · y -?\d+ · z -?\d+ mm$/);
     expect(errors).toEqual([]);
   });
 });

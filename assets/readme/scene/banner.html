@@ -250,7 +250,7 @@ const partFace = P[6].clone().add(new THREE.Vector3(...zAx).multiplyScalar(STAND
 dimension(base, P[1], `d1 = ${K.DH_D[0]}`, -44);
 dimension(P[1], P[2], `a2 = ${K.DH_A[1]}`, -40);
 dimension(P[3], P[4], `d4 = ${K.DH_D[3]}`, 36);
-dimension(P[5], P[6], `d6 = ${K.DH_D[5]}`, 28);
+dimension(P[5], P[6], `d6 = ${K.DH_D[5]}`, -46);
 // the standoff from the TCP to the part face, the number the whole sheet is about
 dimension(toolTip, partFace, `${STANDOFF} standoff`, 74, { lime: true });
 

@@ -141,7 +141,7 @@ export function createHero(host) {
     tags.forEach((tag, j) => { tag.lastElementChild.textContent = fmtDeg(q[j]); });
     if (tcp) {
       const p = pts[6];
-      tcp.textContent = `TCP ${p.x.toFixed(0).padStart(5, " ")} ${p.y.toFixed(0).padStart(5, " ")} ${p.z.toFixed(0).padStart(5, " ")} mm`;
+      tcp.textContent = `TCP x ${p.x.toFixed(0)} · y ${p.y.toFixed(0)} · z ${p.z.toFixed(0)} mm`;
     }
     const pad = copy ? copy.offsetLeft : 24;
     const tagW = tags[0].offsetWidth, tagH = tags[0].offsetHeight, pitch = tagH + 6;

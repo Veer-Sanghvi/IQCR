@@ -6,6 +6,7 @@ abstract: "Live 3D simulation of an ABB IRB 120 six-axis arm and its damped-leas
 authors:
   - family-names: Sanghvi
     given-names: Veer
+    orcid: "https://orcid.org/0009-0000-0375-0702"
 repository-code: "https://github.com/Veer-Sanghvi/IQCR"
 url: "https://veer-sanghvi.github.io/IQCR/"
 preferred-citation:
@@ -14,6 +15,7 @@ preferred-citation:
   authors:
     - family-names: Sanghvi
       given-names: Veer
+      orcid: "https://orcid.org/0009-0000-0375-0702"
     - family-names: Fong
       given-names: Tyler
     - family-names: Shah
