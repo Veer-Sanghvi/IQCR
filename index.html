@@ -159,7 +159,7 @@ body{
   .showpiece-host{height:clamp(420px, 64vh, 600px);}
   .showpiece-leaders{display:none;}
   .showpiece-tags{inset:16px 16px auto 16px; display:flex; flex-wrap:wrap; gap:4px;}
-  .showpiece-tag{position:static; transform:none !important; font-size:10.5px; padding:2px 6px; gap:6px;}
+  .showpiece-tag{position:static; transform:none !important; font-size:12px; padding:2px 6px; gap:6px;}
   .showpiece-readout{display:none;}
   .showpiece-copy{max-width:calc(100vw - 32px);}
 }
@@ -319,6 +319,7 @@ footer a{color:var(--ink-2);}
 footer .rule{height:1px; background:var(--border); margin-bottom:var(--space-xl);}
 
 .pill{font-family:var(--font-mono); font-size:11px; background:var(--surface-2); color:var(--ink-2); border:1px solid var(--border); border-radius:20px; padding:3px 10px; display:inline-block;}
+@media (max-width:640px){.eyebrow, .pill{font-size:12px;}}
 
 /* ---------- Disclosure (collapsed-by-default deep dive) ---------- */
 .disclosure summary{
